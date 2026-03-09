@@ -96,14 +96,6 @@ const HomePage = () => {
     const item = contentFeed.find((i) => i.id === id);
     if (item) {
       setSpriteXP((prev) => prev + item.xp);
-      // Add fill to random thermos
-      setThermosBubbles((prev) =>
-        prev.map((b, i) =>
-          i === Math.floor(Math.random() * prev.length)
-            ? { ...b, fill: Math.min(100, b.fill + item.xp) }
-            : b
-        )
-      );
     }
   };
 
