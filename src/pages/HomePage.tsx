@@ -170,7 +170,7 @@ const HomePage = () => {
                   className={`relative w-14 h-14 rounded-full border-2 overflow-hidden flex flex-col items-center justify-center transition-all ${
                     isClaimed
                       ? "border-primary/30 bg-primary/5"
-                      : isFull
+                      : canClaim
                       ? "border-primary shadow-[0_0_12px_hsl(var(--primary)/0.4)] cursor-pointer"
                       : "border-muted-foreground/20 bg-background/80"
                   }`}
