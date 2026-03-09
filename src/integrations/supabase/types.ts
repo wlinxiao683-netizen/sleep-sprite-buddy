@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      sleep_logs: {
+        Row: {
+          bedtime_planned: string
+          collected: boolean
+          created_at: string
+          date: string
+          device_id: string
+          id: string
+          quality: number
+          timed_out: boolean
+          wake_time_planned: string
+        }
+        Insert: {
+          bedtime_planned?: string
+          collected?: boolean
+          created_at?: string
+          date: string
+          device_id: string
+          id?: string
+          quality?: number
+          timed_out?: boolean
+          wake_time_planned?: string
+        }
+        Update: {
+          bedtime_planned?: string
+          collected?: boolean
+          created_at?: string
+          date?: string
+          device_id?: string
+          id?: string
+          quality?: number
+          timed_out?: boolean
+          wake_time_planned?: string
+        }
+        Relationships: []
+      }
       sleep_plans: {
         Row: {
           activated_at: string | null
