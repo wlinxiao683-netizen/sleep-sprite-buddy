@@ -14,38 +14,40 @@ const getMoodForDay = (quality: number) => {
 };
 
 const InsightsPage = () => {
-  const [currentMonth, setCurrentMonth] = useState("February 2026");
+  const [currentMonth, setCurrentMonth] = useState("March 2026");
 
   const weekData = [
-    { day: "Mon", quality: 78, hours: 7.5 },
-    { day: "Tue", quality: 82, hours: 8.0 },
-    { day: "Wed", quality: 75, hours: 7.0 },
-    { day: "Thu", quality: 88, hours: 8.5 },
-    { day: "Fri", quality: 70, hours: 6.5 },
-    { day: "Sat", quality: 92, hours: 9.0 },
-    { day: "Sun", quality: 85, hours: 8.0 },
+    { day: "Mon", quality: 0, hours: 0 },
+    { day: "Tue", quality: 0, hours: 0 },
+    { day: "Wed", quality: 0, hours: 0 },
+    { day: "Thu", quality: 0, hours: 0 },
+    { day: "Fri", quality: 0, hours: 0 },
+    { day: "Sat", quality: 0, hours: 0 },
+    { day: "Sun", quality: 0, hours: 0 },
   ];
 
-  const yesterdaySleep = {
-    totalHours: 7.5,
-    quality: 85,
-    rating: "Good",
-    bedtime: "23:15",
-    wakeTime: "06:45",
-    heartRate: { avg: 58, min: 52, max: 72 },
-    cycles: [
-      { type: "Awake", duration: 15, color: "bg-orange-400" },
-      { type: "Light", duration: 180, color: "bg-primary/40" },
-      { type: "Deep", duration: 90, color: "bg-primary" },
-      { type: "REM", duration: 120, color: "bg-purple-400" },
-      { type: "Light", duration: 45, color: "bg-primary/40" },
-    ],
-  };
+  // March 2026 starts on Sunday → offset 6 for Mon-start grid
+  const marchDaysInMonth = 31;
+  const marchStartOffset = 6; // Sunday = 6 empty cells when week starts Monday
+  const calendarDays: { day: number; quality: number }[] = [];
+  // Add empty offset cells
+  for (let i = 0; i < marchStartOffset; i++) {
+    calendarDays.push({ day: 0, quality: 0 });
+  }
+  // Add actual days — all empty (no sleep data recorded yet)
+  for (let d = 1; d <= marchDaysInMonth; d++) {
+    calendarDays.push({ day: d, quality: 0 });
+  }
 
-  const calendarDays = Array.from({ length: 28 }, (_, i) => ({
-    day: i + 1,
-    quality: Math.random() > 0.3 ? Math.floor(Math.random() * 40) + 60 : 0,
-  }));
+  const yesterdaySleep = {
+    totalHours: 0,
+    quality: 0,
+    rating: "No Data",
+    bedtime: "--:--",
+    wakeTime: "--:--",
+    heartRate: { avg: 0, min: 0, max: 0 },
+    cycles: [] as { type: string; duration: number; color: string }[],
+  };
 
   const behaviorTags = [
     {
@@ -76,17 +78,17 @@ const InsightsPage = () => {
 
   // Sleep debt: target 8h/night, 7 days
   const sleepDebtData = {
-    targetHours: 56,
-    actualHours: 51.5,
-    debtHours: 4.5,
-    energyPercent: 72,
+    targetHours: 0,
+    actualHours: 0,
+    debtHours: 0,
+    energyPercent: 0,
     dailyBreakdown: [
-      { day: "Mon", diff: -0.5 },
+      { day: "Mon", diff: 0 },
       { day: "Tue", diff: 0 },
-      { day: "Wed", diff: -1 },
-      { day: "Thu", diff: 0.5 },
-      { day: "Fri", diff: -1.5 },
-      { day: "Sat", diff: 1 },
+      { day: "Wed", diff: 0 },
+      { day: "Thu", diff: 0 },
+      { day: "Fri", diff: 0 },
+      { day: "Sat", diff: 0 },
       { day: "Sun", diff: 0 },
     ],
   };
@@ -152,6 +154,9 @@ const InsightsPage = () => {
         {/* Calendar grid with mood sprites */}
         <div className="grid grid-cols-7 gap-2">
           {calendarDays.map((day, index) => {
+            if (day.day === 0) {
+              return <div key={index} className="aspect-square" />;
+            }
             const mood = getMoodForDay(day.quality);
             return (
               <motion.div
