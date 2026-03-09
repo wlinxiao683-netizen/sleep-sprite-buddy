@@ -39,6 +39,16 @@ const InsightsPage = () => {
     calendarDays.push({ day: d, quality: 0 });
   }
 
+  const yesterdaySleep = {
+    totalHours: 0,
+    quality: 0,
+    rating: "No Data",
+    bedtime: "--:--",
+    wakeTime: "--:--",
+    heartRate: { avg: 0, min: 0, max: 0 },
+    cycles: [] as { type: string; duration: number; color: string }[],
+  };
+
   const behaviorTags = [
     {
       icon: "🎮",
