@@ -3,6 +3,7 @@ import { Lock, Unlock, Sparkles, ExternalLink, Check, Gift, Star, Zap, Clock, Ho
 import { useState, useEffect } from "react";
 import SleepSprite, { SpriteType, spriteNames } from "@/components/SleepSprite";
 import { useSleepPlan } from "@/hooks/use-sleep-plan";
+import { useSleepLogs } from "@/hooks/use-sleep-logs";
 
 const spriteOrder: SpriteType[] = ["unicorn", "koala", "sheep", "cat"];
 
@@ -30,16 +31,28 @@ const HomePage = () => {
   const [spriteXP, setSpriteXP] = useState(1280);
   const [claimedRewards, setClaimedRewards] = useState<number[]>([]);
   const [showReward, setShowReward] = useState<string | null>(null);
-  const { getCosyMugFill, activatedAt, resetActivation } = useSleepPlan();
+  const { getCosyMugFill, activatedAt, resetActivation, bedtime, wakeTime } = useSleepPlan();
+  const { isTodayDone, collectToday, timeoutToday, autoFillYesterday } = useSleepLogs();
   const [cosyMugFill, setCosyMugFill] = useState(0);
+
+  // Auto-fill yesterday's log on mount
+  useEffect(() => {
+    autoFillYesterday(bedtime, wakeTime);
+  }, [autoFillYesterday, bedtime, wakeTime]);
 
   // Update cosy mug fill every 10 seconds, handle auto-reset
   useEffect(() => {
     const update = () => {
+      // If today is already done (collected or timed out), show 0
+      if (isTodayDone) {
+        setCosyMugFill(0);
+        return;
+      }
       const fill = getCosyMugFill();
       if (fill === -1) {
-        // Auto-reset after 10 min past bedtime
+        // Auto-reset after 10 min past bedtime — mark as timed out
         setCosyMugFill(0);
+        timeoutToday(bedtime, wakeTime);
         resetActivation();
       } else {
         setCosyMugFill(fill);
@@ -48,7 +61,7 @@ const HomePage = () => {
     update();
     const interval = setInterval(update, 10000);
     return () => clearInterval(interval);
-  }, [getCosyMugFill, resetActivation]);
+  }, [getCosyMugFill, resetActivation, isTodayDone, timeoutToday, bedtime, wakeTime]);
 
   const [thermosBubbles, setThermosBubbles] = useState<ThermosBubble[]>([
     { id: 0, icon: "classic", label: "Capsule", reward: "Starry Scarf", fill: 0, angle: -75, distance: 155 },
@@ -77,11 +90,15 @@ const HomePage = () => {
     setCurrentSpriteIndex((prev) => (prev + 1) % spriteOrder.length);
   };
 
-  const handleClaimReward = (bubble: ThermosBubble) => {
-    // Only cozy mug (id 3) can be claimed, and only when it has some fill and isn't already claimed
-    if (bubble.id !== 3 || bubble.fill <= 0 || claimedRewards.includes(bubble.id)) return;
+  const handleClaimReward = async (bubble: ThermosBubble) => {
+    // Only cozy mug (id 3) can be claimed, only when fill > 0, not already claimed, and not done today
+    if (bubble.id !== 3 || bubble.fill <= 0 || claimedRewards.includes(bubble.id) || isTodayDone) return;
     setClaimedRewards((prev) => [...prev, bubble.id]);
     setShowReward(bubble.reward);
+    // Record collection in sleep_logs
+    await collectToday(bubble.fill, bedtime, wakeTime);
+    // Reset activation since it's been collected
+    await resetActivation();
     if (bubble.reward.includes("XP")) {
       const xpMatch = bubble.reward.match(/\d+/);
       if (xpMatch) setSpriteXP((prev) => prev + parseInt(xpMatch[0]));

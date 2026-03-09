@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Lightbulb, ChevronLeft, ChevronRight, TrendingUp, Calendar as CalendarIcon, Moon, Heart, Clock, Star, Zap, Activity, Gamepad2, Smartphone, Brain, BatteryMedium } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { useSleepLogs } from "@/hooks/use-sleep-logs";
 
 const moodEmojis = ["😴", "😊", "😐", "😣", "🌟"];
 
@@ -15,6 +16,22 @@ const getMoodForDay = (quality: number) => {
 
 const InsightsPage = () => {
   const [currentMonth, setCurrentMonth] = useState("March 2026");
+  const { logs, loadLogs } = useSleepLogs();
+
+  // Load March 2026 logs on mount
+  useEffect(() => {
+    loadLogs(2026, 3);
+  }, [loadLogs]);
+
+  // Build a map of day → quality from logs
+  const logsByDay = useMemo(() => {
+    const map: Record<number, number> = {};
+    logs.forEach((log) => {
+      const dayNum = parseInt(log.date.split("-")[2], 10);
+      map[dayNum] = log.quality;
+    });
+    return map;
+  }, [logs]);
 
   const weekData = [
     { day: "Mon", quality: 0, hours: 0 },
@@ -30,16 +47,28 @@ const InsightsPage = () => {
   const marchDaysInMonth = 31;
   const marchStartOffset = 6; // Sunday = 6 empty cells when week starts Monday
   const calendarDays: { day: number; quality: number }[] = [];
-  // Add empty offset cells
   for (let i = 0; i < marchStartOffset; i++) {
     calendarDays.push({ day: 0, quality: 0 });
   }
-  // Add actual days — all empty (no sleep data recorded yet)
   for (let d = 1; d <= marchDaysInMonth; d++) {
-    calendarDays.push({ day: d, quality: 0 });
+    calendarDays.push({ day: d, quality: logsByDay[d] || 0 });
   }
 
-  const yesterdaySleep = {
+  // Find yesterday's log for details
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayDay = yesterdayDate.getDate();
+  const yesterdayLog = logs.find((l) => parseInt(l.date.split("-")[2], 10) === yesterdayDay);
+
+  const yesterdaySleep = yesterdayLog ? {
+    totalHours: 0, // We don't track actual hours yet
+    quality: yesterdayLog.quality,
+    rating: yesterdayLog.quality >= 90 ? "Excellent" : yesterdayLog.quality >= 70 ? "Good" : yesterdayLog.quality >= 50 ? "Fair" : "Poor",
+    bedtime: yesterdayLog.bedtime_planned,
+    wakeTime: yesterdayLog.wake_time_planned,
+    heartRate: { avg: 0, min: 0, max: 0 },
+    cycles: [] as { type: string; duration: number; color: string }[],
+  } : {
     totalHours: 0,
     quality: 0,
     rating: "No Data",
