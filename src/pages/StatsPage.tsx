@@ -154,6 +154,9 @@ const InsightsPage = () => {
         {/* Calendar grid with mood sprites */}
         <div className="grid grid-cols-7 gap-2">
           {calendarDays.map((day, index) => {
+            if (day.day === 0) {
+              return <div key={index} className="aspect-square" />;
+            }
             const mood = getMoodForDay(day.quality);
             return (
               <motion.div
