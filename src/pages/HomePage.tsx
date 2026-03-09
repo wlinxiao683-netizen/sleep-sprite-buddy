@@ -78,7 +78,8 @@ const HomePage = () => {
   };
 
   const handleClaimReward = (bubble: ThermosBubble) => {
-    if (bubble.fill < 100 || claimedRewards.includes(bubble.id)) return;
+    // Only cozy mug (id 3) can be claimed, and only when it has some fill and isn't already claimed
+    if (bubble.id !== 3 || bubble.fill <= 0 || claimedRewards.includes(bubble.id)) return;
     setClaimedRewards((prev) => [...prev, bubble.id]);
     setShowReward(bubble.reward);
     if (bubble.reward.includes("XP")) {
