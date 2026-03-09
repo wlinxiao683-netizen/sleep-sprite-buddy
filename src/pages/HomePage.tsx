@@ -142,8 +142,10 @@ const HomePage = () => {
 
           {/* Floating thermos bubbles */}
           {thermosBubbles.map((bubble) => {
+            const isCozyMug = bubble.id === 3;
             const isFull = bubble.fill >= 100;
             const isClaimed = claimedRewards.includes(bubble.id);
+            const canClaim = isCozyMug && bubble.fill > 0 && !isClaimed;
             const rad = (bubble.angle * Math.PI) / 180;
             const x = 150 + bubble.distance * Math.sin(rad) - 28;
             const y = 150 - bubble.distance * Math.cos(rad) - 28;
@@ -160,8 +162,8 @@ const HomePage = () => {
                 transition={{
                   y: { duration: 2.5 + bubble.id * 0.3, repeat: Infinity, ease: "easeInOut" },
                 }}
-                whileHover={isFull && !isClaimed ? { scale: 1.15 } : {}}
-                whileTap={isFull && !isClaimed ? { scale: 0.9 } : {}}
+                whileHover={canClaim ? { scale: 1.15 } : {}}
+                whileTap={canClaim ? { scale: 0.9 } : {}}
               >
                 {/* Bubble background with fill level */}
                 <div
