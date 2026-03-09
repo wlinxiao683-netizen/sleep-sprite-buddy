@@ -3,6 +3,7 @@ import { Lock, Unlock, Sparkles, ExternalLink, Check, Gift, Star, Zap, Clock, Ho
 import { useState, useEffect } from "react";
 import SleepSprite, { SpriteType, spriteNames } from "@/components/SleepSprite";
 import { useSleepPlan } from "@/hooks/use-sleep-plan";
+import { useSleepLogs } from "@/hooks/use-sleep-logs";
 
 const spriteOrder: SpriteType[] = ["unicorn", "koala", "sheep", "cat"];
 
