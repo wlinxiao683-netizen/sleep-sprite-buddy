@@ -30,21 +30,30 @@ const HomePage = () => {
   const [spriteXP, setSpriteXP] = useState(1280);
   const [claimedRewards, setClaimedRewards] = useState<number[]>([]);
   const [showReward, setShowReward] = useState<string | null>(null);
-  const { getCosyMugFill, activatedAt } = useSleepPlan();
+  const { getCosyMugFill, activatedAt, resetActivation } = useSleepPlan();
   const [cosyMugFill, setCosyMugFill] = useState(0);
 
-  // Update cosy mug fill every 10 seconds
+  // Update cosy mug fill every 10 seconds, handle auto-reset
   useEffect(() => {
-    const update = () => setCosyMugFill(getCosyMugFill());
+    const update = () => {
+      const fill = getCosyMugFill();
+      if (fill === -1) {
+        // Auto-reset after 10 min past bedtime
+        setCosyMugFill(0);
+        resetActivation();
+      } else {
+        setCosyMugFill(fill);
+      }
+    };
     update();
     const interval = setInterval(update, 10000);
     return () => clearInterval(interval);
-  }, [getCosyMugFill]);
+  }, [getCosyMugFill, resetActivation]);
 
   const [thermosBubbles, setThermosBubbles] = useState<ThermosBubble[]>([
-    { id: 0, icon: "classic", label: "Capsule", reward: "Starry Scarf", fill: 100, angle: -75, distance: 155 },
-    { id: 1, icon: "cosmic", label: "Cosmic", reward: "+80 XP", fill: 72, angle: 55, distance: 160 },
-    { id: 2, icon: "nature", label: "Sprout", reward: "Night Sky BG", fill: 45, angle: -40, distance: 145 },
+    { id: 0, icon: "classic", label: "Capsule", reward: "Starry Scarf", fill: 0, angle: -75, distance: 155 },
+    { id: 1, icon: "cosmic", label: "Cosmic", reward: "+80 XP", fill: 0, angle: 55, distance: 160 },
+    { id: 2, icon: "nature", label: "Sprout", reward: "Night Sky BG", fill: 0, angle: -40, distance: 145 },
     { id: 3, icon: "cozy", label: "Cozy Mug", reward: "Golden Hat", fill: 0, angle: 80, distance: 150 },
   ]);
 
