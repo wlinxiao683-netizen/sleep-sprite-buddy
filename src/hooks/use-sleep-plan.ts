@@ -157,7 +157,8 @@ export function useSleepPlan() {
       );
   }, [bedtime, wakeTime, bufferMinutes, alarmEnabled]);
 
-  /** Get the cozy mug fill percentage (0-100) based on elapsed time since activation */
+  /** Get the cozy mug fill percentage (0-100) based on elapsed time since activation.
+   *  Stays at 100% for 10 minutes after bedtime, then auto-resets to 0. */
   const getCosyMugFill = useCallback((): number => {
     if (!activatedAt) return 0;
     const activationTime = new Date(activatedAt).getTime();
@@ -174,8 +175,28 @@ export function useSleepPlan() {
     const elapsed = now.getTime() - activationTime;
     if (totalDuration <= 0) return 100;
     const pct = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-    return Math.round(pct);
+    const rounded = Math.round(pct);
+
+    if (rounded >= 100) {
+      // Check if more than 10 minutes past bedtime
+      const overTime = now.getTime() - target.getTime();
+      if (overTime > 10 * 60 * 1000) {
+        // Auto-reset: clear activation
+        return -1; // signal reset
+      }
+      return 100;
+    }
+    return rounded;
   }, [activatedAt, bedtime]);
+
+  /** Reset activation state (clears activatedAt in state and DB) */
+  const resetActivation = useCallback(async () => {
+    setActivatedAt(null);
+    await supabase
+      .from("sleep_plans")
+      .update({ activated_at: null } as any)
+      .eq("device_id", deviceId.current);
+  }, []);
 
   // Update buffer every minute based on current time
   useEffect(() => {
@@ -200,5 +221,6 @@ export function useSleepPlan() {
     toggleAlarm,
     activate,
     getCosyMugFill,
+    resetActivation,
   };
 }

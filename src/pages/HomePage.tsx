@@ -30,21 +30,30 @@ const HomePage = () => {
   const [spriteXP, setSpriteXP] = useState(1280);
   const [claimedRewards, setClaimedRewards] = useState<number[]>([]);
   const [showReward, setShowReward] = useState<string | null>(null);
-  const { getCosyMugFill, activatedAt } = useSleepPlan();
+  const { getCosyMugFill, activatedAt, resetActivation } = useSleepPlan();
   const [cosyMugFill, setCosyMugFill] = useState(0);
 
-  // Update cosy mug fill every 10 seconds
+  // Update cosy mug fill every 10 seconds, handle auto-reset
   useEffect(() => {
-    const update = () => setCosyMugFill(getCosyMugFill());
+    const update = () => {
+      const fill = getCosyMugFill();
+      if (fill === -1) {
+        // Auto-reset after 10 min past bedtime
+        setCosyMugFill(0);
+        resetActivation();
+      } else {
+        setCosyMugFill(fill);
+      }
+    };
     update();
     const interval = setInterval(update, 10000);
     return () => clearInterval(interval);
-  }, [getCosyMugFill]);
+  }, [getCosyMugFill, resetActivation]);
 
   const [thermosBubbles, setThermosBubbles] = useState<ThermosBubble[]>([
-    { id: 0, icon: "classic", label: "Capsule", reward: "Starry Scarf", fill: 100, angle: -75, distance: 155 },
-    { id: 1, icon: "cosmic", label: "Cosmic", reward: "+80 XP", fill: 72, angle: 55, distance: 160 },
-    { id: 2, icon: "nature", label: "Sprout", reward: "Night Sky BG", fill: 45, angle: -40, distance: 145 },
+    { id: 0, icon: "classic", label: "Capsule", reward: "Starry Scarf", fill: 0, angle: -75, distance: 155 },
+    { id: 1, icon: "cosmic", label: "Cosmic", reward: "+80 XP", fill: 0, angle: 55, distance: 160 },
+    { id: 2, icon: "nature", label: "Sprout", reward: "Night Sky BG", fill: 0, angle: -40, distance: 145 },
     { id: 3, icon: "cozy", label: "Cozy Mug", reward: "Golden Hat", fill: 0, angle: 80, distance: 150 },
   ]);
 
@@ -69,7 +78,8 @@ const HomePage = () => {
   };
 
   const handleClaimReward = (bubble: ThermosBubble) => {
-    if (bubble.fill < 100 || claimedRewards.includes(bubble.id)) return;
+    // Only cozy mug (id 3) can be claimed, and only when it has some fill and isn't already claimed
+    if (bubble.id !== 3 || bubble.fill <= 0 || claimedRewards.includes(bubble.id)) return;
     setClaimedRewards((prev) => [...prev, bubble.id]);
     setShowReward(bubble.reward);
     if (bubble.reward.includes("XP")) {
@@ -86,14 +96,6 @@ const HomePage = () => {
     const item = contentFeed.find((i) => i.id === id);
     if (item) {
       setSpriteXP((prev) => prev + item.xp);
-      // Add fill to random thermos
-      setThermosBubbles((prev) =>
-        prev.map((b, i) =>
-          i === Math.floor(Math.random() * prev.length)
-            ? { ...b, fill: Math.min(100, b.fill + item.xp) }
-            : b
-        )
-      );
     }
   };
 
@@ -140,8 +142,10 @@ const HomePage = () => {
 
           {/* Floating thermos bubbles */}
           {thermosBubbles.map((bubble) => {
+            const isCozyMug = bubble.id === 3;
             const isFull = bubble.fill >= 100;
             const isClaimed = claimedRewards.includes(bubble.id);
+            const canClaim = isCozyMug && bubble.fill > 0 && !isClaimed;
             const rad = (bubble.angle * Math.PI) / 180;
             const x = 150 + bubble.distance * Math.sin(rad) - 28;
             const y = 150 - bubble.distance * Math.cos(rad) - 28;
@@ -158,15 +162,15 @@ const HomePage = () => {
                 transition={{
                   y: { duration: 2.5 + bubble.id * 0.3, repeat: Infinity, ease: "easeInOut" },
                 }}
-                whileHover={isFull && !isClaimed ? { scale: 1.15 } : {}}
-                whileTap={isFull && !isClaimed ? { scale: 0.9 } : {}}
+                whileHover={canClaim ? { scale: 1.15 } : {}}
+                whileTap={canClaim ? { scale: 0.9 } : {}}
               >
                 {/* Bubble background with fill level */}
                 <div
                   className={`relative w-14 h-14 rounded-full border-2 overflow-hidden flex flex-col items-center justify-center transition-all ${
                     isClaimed
                       ? "border-primary/30 bg-primary/5"
-                      : isFull
+                      : canClaim
                       ? "border-primary shadow-[0_0_12px_hsl(var(--primary)/0.4)] cursor-pointer"
                       : "border-muted-foreground/20 bg-background/80"
                   }`}
@@ -196,8 +200,8 @@ const HomePage = () => {
                     )}
                   </div>
 
-                  {/* Full glow pulse */}
-                  {isFull && !isClaimed && (
+                  {/* Glow pulse when claimable */}
+                  {canClaim && (
                     <motion.div
                       className="absolute inset-0 rounded-full border-2 border-primary"
                       animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.08, 1] }}
