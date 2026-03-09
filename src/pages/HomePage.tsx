@@ -200,8 +200,8 @@ const HomePage = () => {
                     )}
                   </div>
 
-                  {/* Full glow pulse */}
-                  {isFull && !isClaimed && (
+                  {/* Glow pulse when claimable */}
+                  {canClaim && (
                     <motion.div
                       className="absolute inset-0 rounded-full border-2 border-primary"
                       animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.08, 1] }}
