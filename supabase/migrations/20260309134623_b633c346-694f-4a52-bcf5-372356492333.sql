@@ -1,0 +1,1 @@
+ALTER TABLE public.sleep_plans ADD COLUMN activated_at timestamp with time zone DEFAULT NULL;
