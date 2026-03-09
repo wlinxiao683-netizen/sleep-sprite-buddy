@@ -78,17 +78,17 @@ const InsightsPage = () => {
 
   // Sleep debt: target 8h/night, 7 days
   const sleepDebtData = {
-    targetHours: 56,
-    actualHours: 51.5,
-    debtHours: 4.5,
-    energyPercent: 72,
+    targetHours: 0,
+    actualHours: 0,
+    debtHours: 0,
+    energyPercent: 0,
     dailyBreakdown: [
-      { day: "Mon", diff: -0.5 },
+      { day: "Mon", diff: 0 },
       { day: "Tue", diff: 0 },
-      { day: "Wed", diff: -1 },
-      { day: "Thu", diff: 0.5 },
-      { day: "Fri", diff: -1.5 },
-      { day: "Sat", diff: 1 },
+      { day: "Wed", diff: 0 },
+      { day: "Thu", diff: 0 },
+      { day: "Fri", diff: 0 },
+      { day: "Sat", diff: 0 },
       { day: "Sun", diff: 0 },
     ],
   };
