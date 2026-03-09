@@ -221,5 +221,6 @@ export function useSleepPlan() {
     toggleAlarm,
     activate,
     getCosyMugFill,
+    resetActivation,
   };
 }
