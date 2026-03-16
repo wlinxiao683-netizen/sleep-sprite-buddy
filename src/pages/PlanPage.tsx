@@ -114,33 +114,35 @@ const PlanPage = () => {
           onWakeTimeChange={setWakeTime}
         />
 
-        {/* Buffer Zone — linked to current time */}
-        <div className="mt-4 px-3 py-2.5 bg-muted/30 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Timer className="w-4 h-4 text-primary" />
+        {/* Buffer Zone — only visible after 6 PM */}
+        {isBufferActive && (
+          <div className="mt-4 px-3 py-2.5 bg-muted/30 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Timer className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-foreground">Buffer Zone</h3>
+                  <p className="text-[10px] text-muted-foreground">Time until bedtime</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-foreground">Buffer Zone</h3>
-                <p className="text-[10px] text-muted-foreground">Time until bedtime</p>
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={[Math.min(bufferMinutes, 180)]}
+                  onValueChange={(v) => setBufferMinutes(v[0])}
+                  min={0}
+                  max={180}
+                  step={5}
+                  className="w-20"
+                />
+                <span className="text-lg font-bold text-primary min-w-[56px] text-right">
+                  {bufferDisplay}
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Slider
-                value={[Math.min(bufferMinutes, 180)]}
-                onValueChange={(v) => setBufferMinutes(v[0])}
-                min={0}
-                max={180}
-                step={5}
-                className="w-20"
-              />
-              <span className="text-lg font-bold text-primary min-w-[56px] text-right">
-                {bufferDisplay}
-              </span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Sleep Alarm */}
         <div className="mt-2 px-3 py-2.5 bg-muted/30 rounded-xl">
