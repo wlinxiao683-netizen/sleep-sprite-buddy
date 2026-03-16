@@ -209,6 +209,7 @@ const PlanPage = () => {
             <motion.button
               onClick={async () => {
                 await resetActivation();
+                await resetTodayLog();
                 setSynced(false);
               }}
               className="w-full mt-2 py-3 rounded-2xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 border border-destructive/30 text-destructive hover:bg-destructive/10"
