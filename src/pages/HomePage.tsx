@@ -41,9 +41,22 @@ const HomePage = () => {
   const [spriteXP, setSpriteXP] = useState(1280);
   const [claimedRewards, setClaimedRewards] = useState<number[]>([]);
   const [showReward, setShowReward] = useState<string | null>(null);
-  const { getCosyMugFill, activatedAt, resetActivation, bedtime, wakeTime } = useSleepPlan();
-  const { isTodayDone, collectToday, timeoutToday, autoFillYesterday } = useSleepLogs();
+  const { getCosyMugFill, activatedAt, resetActivation, bedtime, wakeTime, bufferMinutes, loaded } = useSleepPlan();
+  const { isTodayDone, collectToday, timeoutToday, autoFillYesterday, getYesterdayQuality } = useSleepLogs();
   const [cosyMugFill, setCosyMugFill] = useState(0);
+  const { showBufferAlert, showEveningReminder, dismissBufferAlert, dismissEveningReminder } = useBedtimeReminder(bufferMinutes, activatedAt, loaded);
+
+  // Yesterday's glow
+  const [yesterdayGlow, setYesterdayGlow] = useState<GlowType>("none");
+  useEffect(() => {
+    (async () => {
+      const q = await getYesterdayQuality();
+      if (q === null) setYesterdayGlow("none");
+      else if (q >= 70) setYesterdayGlow("green");
+      else if (q >= 40) setYesterdayGlow("yellow");
+      else setYesterdayGlow("red");
+    })();
+  }, [getYesterdayQuality]);
 
   // Auto-fill yesterday's log on mount
   useEffect(() => {
