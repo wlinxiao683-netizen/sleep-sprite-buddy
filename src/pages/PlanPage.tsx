@@ -202,6 +202,23 @@ const PlanPage = () => {
             )}
           </motion.button>
 
+          {/* Reset button — visible when activated */}
+          {activatedAt && !syncing && (
+            <motion.button
+              onClick={async () => {
+                await resetActivation();
+                setSynced(false);
+              }}
+              className="w-full mt-2 py-3 rounded-2xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 border border-destructive/30 text-destructive hover:bg-destructive/10"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset Plan
+            </motion.button>
+          )}
+
           <AnimatePresence>
             {synced && (
               <motion.div
