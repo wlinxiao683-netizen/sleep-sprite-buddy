@@ -177,6 +177,7 @@ const HomePage = () => {
               showControls={true}
               onPrev={handlePrevSprite}
               onNext={handleNextSprite}
+              yesterdayGlow={yesterdayGlow}
             />
           </div>
 
