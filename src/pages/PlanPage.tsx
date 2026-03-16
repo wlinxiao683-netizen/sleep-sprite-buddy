@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import CircularTimePicker from "@/components/CircularTimePicker";
 import { Slider } from "@/components/ui/slider";
 import { useSleepPlan } from "@/hooks/use-sleep-plan";
+import { useSleepLogs } from "@/hooks/use-sleep-logs";
 
 interface WorryItem {
   id: number;
