@@ -103,15 +103,19 @@ export function useSleepPlan() {
     []
   );
 
-  // When bedtime changes (from circular picker) → recalc buffer
+  // When bedtime changes (from circular picker) → recalc buffer only after 6 PM
   const setBedtime = useCallback(
     (newBedtime: string) => {
       setBedtimeState(newBedtime);
-      const newBuffer = calcBuffer(newBedtime);
-      setBufferState(newBuffer);
-      saveToDB(newBedtime, wakeTime, newBuffer, alarmEnabled);
+      if (isAfter6PM()) {
+        const newBuffer = calcBuffer(newBedtime);
+        setBufferState(newBuffer);
+        saveToDB(newBedtime, wakeTime, newBuffer, alarmEnabled);
+      } else {
+        saveToDB(newBedtime, wakeTime, bufferMinutes, alarmEnabled);
+      }
     },
-    [wakeTime, alarmEnabled, saveToDB]
+    [wakeTime, bufferMinutes, alarmEnabled, saveToDB]
   );
 
   // When wake time changes → just save
@@ -123,7 +127,7 @@ export function useSleepPlan() {
     [bedtime, bufferMinutes, alarmEnabled, saveToDB]
   );
 
-  // When buffer changes (from slider) → recalc bedtime
+  // When buffer changes (from slider) → recalc bedtime (only available after 6 PM)
   const setBufferMinutes = useCallback(
     (newBuffer: number) => {
       setBufferState(newBuffer);
