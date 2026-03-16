@@ -25,6 +25,11 @@ function minutesToTime(mins: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
+/** Check if current time is after 6 PM (18:00) */
+function isAfter6PM(): boolean {
+  return new Date().getHours() >= 18;
+}
+
 /** Calculate buffer = bedtime - now (in minutes), clamped 0-360 */
 function calcBuffer(bedtime: string): number {
   const nowMins = getCurrentMinutes();
@@ -98,15 +103,19 @@ export function useSleepPlan() {
     []
   );
 
-  // When bedtime changes (from circular picker) → recalc buffer
+  // When bedtime changes (from circular picker) → recalc buffer only after 6 PM
   const setBedtime = useCallback(
     (newBedtime: string) => {
       setBedtimeState(newBedtime);
-      const newBuffer = calcBuffer(newBedtime);
-      setBufferState(newBuffer);
-      saveToDB(newBedtime, wakeTime, newBuffer, alarmEnabled);
+      if (isAfter6PM()) {
+        const newBuffer = calcBuffer(newBedtime);
+        setBufferState(newBuffer);
+        saveToDB(newBedtime, wakeTime, newBuffer, alarmEnabled);
+      } else {
+        saveToDB(newBedtime, wakeTime, bufferMinutes, alarmEnabled);
+      }
     },
-    [wakeTime, alarmEnabled, saveToDB]
+    [wakeTime, bufferMinutes, alarmEnabled, saveToDB]
   );
 
   // When wake time changes → just save
@@ -118,7 +127,7 @@ export function useSleepPlan() {
     [bedtime, bufferMinutes, alarmEnabled, saveToDB]
   );
 
-  // When buffer changes (from slider) → recalc bedtime
+  // When buffer changes (from slider) → recalc bedtime (only available after 6 PM)
   const setBufferMinutes = useCallback(
     (newBuffer: number) => {
       setBufferState(newBuffer);
@@ -198,15 +207,19 @@ export function useSleepPlan() {
       .eq("device_id", deviceId.current);
   }, []);
 
-  // Update buffer every minute based on current time
+  // Update buffer every minute based on current time (only after 6 PM)
   useEffect(() => {
     if (!loaded) return;
     const interval = setInterval(() => {
-      const newBuffer = calcBuffer(bedtime);
-      setBufferState(newBuffer);
+      if (isAfter6PM()) {
+        const newBuffer = calcBuffer(bedtime);
+        setBufferState(newBuffer);
+      }
     }, 60000);
     return () => clearInterval(interval);
   }, [loaded, bedtime]);
+
+  const isBufferActive = isAfter6PM();
 
   return {
     bedtime,
@@ -215,6 +228,7 @@ export function useSleepPlan() {
     alarmEnabled,
     activatedAt,
     loaded,
+    isBufferActive,
     setBedtime,
     setWakeTime,
     setBufferMinutes,
