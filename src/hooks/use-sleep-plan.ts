@@ -25,6 +25,11 @@ function minutesToTime(mins: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
+/** Check if current time is after 6 PM (18:00) */
+function isAfter6PM(): boolean {
+  return new Date().getHours() >= 18;
+}
+
 /** Calculate buffer = bedtime - now (in minutes), clamped 0-360 */
 function calcBuffer(bedtime: string): number {
   const nowMins = getCurrentMinutes();
