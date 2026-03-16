@@ -501,6 +501,40 @@ const HomePage = () => {
           ))}
         </div>
       </motion.div>
+
+      {/* 5-min Buffer Alert */}
+      <AlertDialog open={showBufferAlert} onOpenChange={dismissBufferAlert}>
+        <AlertDialogContent className="rounded-2xl max-w-xs mx-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center text-lg">🌙 5 Minutes Until Bedtime!</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Time to start winding down. Put away your screens and get cozy — your sprite is counting on you!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center">
+            <AlertDialogAction onClick={dismissBufferAlert} className="rounded-xl">
+              Got it!
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 8PM Evening Reminder */}
+      <AlertDialog open={showEveningReminder} onOpenChange={dismissEveningReminder}>
+        <AlertDialogContent className="rounded-2xl max-w-xs mx-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center text-lg">🛏️ Time to Plan Your Sleep!</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              It's 8 PM — set your screen time and bedtime for tonight in the Plan page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center">
+            <AlertDialogAction onClick={dismissEveningReminder} className="rounded-xl">
+              Let's go!
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

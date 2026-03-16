@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Send, Check, Sparkles, Trash2, Mic, Calendar, Rocket, Timer } from "lucide-react";
+import { Bell, Send, Check, Sparkles, Trash2, Mic, Calendar, Rocket, Timer, RotateCcw } from "lucide-react";
 import { useState, useRef } from "react";
 import CircularTimePicker from "@/components/CircularTimePicker";
 import { Slider } from "@/components/ui/slider";
