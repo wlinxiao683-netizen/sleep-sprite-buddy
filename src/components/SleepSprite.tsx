@@ -7,6 +7,8 @@ import catImg from "@/assets/sprites/cat.png";
 
 export type SpriteType = "koala" | "unicorn" | "sheep" | "cat";
 
+type GlowType = "green" | "yellow" | "red" | "none";
+
 interface SleepSpriteProps {
   spriteType: SpriteType;
   sleepHours: number;
@@ -14,6 +16,8 @@ interface SleepSpriteProps {
   onPrev?: () => void;
   onNext?: () => void;
   showControls?: boolean;
+  /** Override glow color based on yesterday's sleep quality */
+  yesterdayGlow?: GlowType;
 }
 
 const spriteImages: Record<SpriteType, string> = {
