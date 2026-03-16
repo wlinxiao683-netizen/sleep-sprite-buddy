@@ -94,12 +94,13 @@ function HourLabels() {
 
 function HourTicks() {
   const ticks = [];
-  for (let i = 0; i < 24; i++) {
-    const angle = (i / 24) * 360 - 90;
+  for (let i = 0; i < 48; i++) {
+    const angle = (i / 48) * 360 - 90;
     const rad = (angle * Math.PI) / 180;
-    const isMain = i % 3 === 0;
+    const isMain = i % 6 === 0;
+    const isMid = i % 2 === 0;
     const outerR = RING_SIZE / 2 - 2;
-    const innerR = outerR - (isMain ? 10 : 5);
+    const innerR = outerR - (isMain ? 10 : isMid ? 5 : 3);
     ticks.push(
       <line
         key={i}
@@ -108,8 +109,8 @@ function HourTicks() {
         x2={CENTER + outerR * Math.cos(rad)}
         y2={CENTER + outerR * Math.sin(rad)}
         stroke="hsl(var(--muted-foreground))"
-        strokeWidth={isMain ? 1.5 : 0.75}
-        opacity={isMain ? 0.35 : 0.18}
+        strokeWidth={isMain ? 1.5 : 0.5}
+        opacity={isMain ? 0.35 : 0.12}
       />
     );
   }
