@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import CircularTimePicker from "@/components/CircularTimePicker";
 import { Slider } from "@/components/ui/slider";
 import { useSleepPlan } from "@/hooks/use-sleep-plan";
+import { useSleepLogs } from "@/hooks/use-sleep-logs";
 
 interface WorryItem {
   id: number;
@@ -26,6 +27,7 @@ const PlanPage = () => {
     activate,
     resetActivation,
   } = useSleepPlan();
+  const { resetTodayLog } = useSleepLogs();
 
   // Brain dump state
   const [worryInput, setWorryInput] = useState("");
@@ -207,6 +209,7 @@ const PlanPage = () => {
             <motion.button
               onClick={async () => {
                 await resetActivation();
+                await resetTodayLog();
                 setSynced(false);
               }}
               className="w-full mt-2 py-3 rounded-2xl font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 border border-destructive/30 text-destructive hover:bg-destructive/10"
