@@ -228,6 +228,7 @@ export function useSleepPlan() {
     alarmEnabled,
     activatedAt,
     loaded,
+    isBufferActive,
     setBedtime,
     setWakeTime,
     setBufferMinutes,

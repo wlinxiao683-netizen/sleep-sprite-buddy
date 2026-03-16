@@ -19,6 +19,7 @@ const PlanPage = () => {
     alarmEnabled,
     activatedAt,
     loaded,
+    isBufferActive,
     setBedtime,
     setWakeTime,
     setBufferMinutes,
