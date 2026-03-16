@@ -195,5 +195,6 @@ const SleepSprite = ({
   );
 };
 
+export type { GlowType };
 export { spriteNames };
 export default SleepSprite;
