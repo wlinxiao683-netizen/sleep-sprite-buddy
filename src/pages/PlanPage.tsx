@@ -24,6 +24,7 @@ const PlanPage = () => {
     setBufferMinutes,
     toggleAlarm,
     activate,
+    resetActivation,
   } = useSleepPlan();
 
   // Brain dump state
