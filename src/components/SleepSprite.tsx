@@ -7,6 +7,8 @@ import catImg from "@/assets/sprites/cat.png";
 
 export type SpriteType = "koala" | "unicorn" | "sheep" | "cat";
 
+type GlowType = "green" | "yellow" | "red" | "none";
+
 interface SleepSpriteProps {
   spriteType: SpriteType;
   sleepHours: number;
@@ -14,6 +16,8 @@ interface SleepSpriteProps {
   onPrev?: () => void;
   onNext?: () => void;
   showControls?: boolean;
+  /** Override glow color based on yesterday's sleep quality */
+  yesterdayGlow?: GlowType;
 }
 
 const spriteImages: Record<SpriteType, string> = {
@@ -36,7 +40,8 @@ const SleepSprite = ({
   size = "lg", 
   onPrev, 
   onNext,
-  showControls = false 
+  showControls = false,
+  yesterdayGlow = "none",
 }: SleepSpriteProps) => {
   const sizeClasses = {
     sm: "w-24 h-24",
@@ -52,15 +57,27 @@ const SleepSprite = ({
     xl: "w-96 h-96",
   };
 
-  // Purple glow for 7h+, warm amber glow for less
-  const isGoodSleep = sleepHours >= 7;
-  const glowColor = isGoodSleep 
-    ? "hsl(250 85% 65% / 0.35)" // primary purple
-    : "hsl(38 92% 50% / 0.35)"; // warm amber
+  // Yesterday's sleep quality glow colors
+  const glowColorMap: Record<GlowType, { inner: string; outer: string }> = {
+    green: { inner: "hsl(142 71% 45% / 0.5)", outer: "hsl(142 71% 45% / 0.3)" },
+    yellow: { inner: "hsl(45 93% 47% / 0.5)", outer: "hsl(45 93% 47% / 0.3)" },
+    red: { inner: "hsl(0 72% 51% / 0.5)", outer: "hsl(0 72% 51% / 0.3)" },
+    none: { inner: "hsl(250 85% 65% / 0)", outer: "hsl(250 85% 65% / 0)" },
+  };
+
+  // Use yesterday glow if available, otherwise default behavior
+  const useYesterdayGlow = yesterdayGlow !== "none";
   
-  const glowColorInner = isGoodSleep 
-    ? "hsl(300 70% 60% / 0.5)" // accent pink-purple
-    : "hsl(38 92% 50% / 0.5)"; // warm amber
+  const isGoodSleep = sleepHours >= 7;
+  const defaultGlowColor = isGoodSleep 
+    ? "hsl(250 85% 65% / 0.35)"
+    : "hsl(38 92% 50% / 0.35)";
+  const defaultGlowInner = isGoodSleep 
+    ? "hsl(300 70% 60% / 0.5)"
+    : "hsl(38 92% 50% / 0.5)";
+
+  const glowColor = useYesterdayGlow ? glowColorMap[yesterdayGlow].outer : defaultGlowColor;
+  const glowColorInner = useYesterdayGlow ? glowColorMap[yesterdayGlow].inner : defaultGlowInner;
 
   return (
     <div className="relative flex items-center justify-center">
@@ -178,5 +195,6 @@ const SleepSprite = ({
   );
 };
 
+export type { GlowType };
 export { spriteNames };
 export default SleepSprite;

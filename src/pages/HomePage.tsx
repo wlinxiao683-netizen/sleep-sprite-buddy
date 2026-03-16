@@ -1,9 +1,19 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Unlock, Sparkles, ExternalLink, Check, Gift, Star, Zap, Clock, Hourglass, Orbit, Sprout, Coffee } from "lucide-react";
 import { useState, useEffect } from "react";
-import SleepSprite, { SpriteType, spriteNames } from "@/components/SleepSprite";
+import SleepSprite, { SpriteType, spriteNames, GlowType } from "@/components/SleepSprite";
 import { useSleepPlan } from "@/hooks/use-sleep-plan";
 import { useSleepLogs } from "@/hooks/use-sleep-logs";
+import { useBedtimeReminder } from "@/hooks/use-bedtime-reminder";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const spriteOrder: SpriteType[] = ["unicorn", "koala", "sheep", "cat"];
 
@@ -31,9 +41,22 @@ const HomePage = () => {
   const [spriteXP, setSpriteXP] = useState(1280);
   const [claimedRewards, setClaimedRewards] = useState<number[]>([]);
   const [showReward, setShowReward] = useState<string | null>(null);
-  const { getCosyMugFill, activatedAt, resetActivation, bedtime, wakeTime } = useSleepPlan();
-  const { isTodayDone, collectToday, timeoutToday, autoFillYesterday } = useSleepLogs();
+  const { getCosyMugFill, activatedAt, resetActivation, bedtime, wakeTime, bufferMinutes, loaded } = useSleepPlan();
+  const { isTodayDone, collectToday, timeoutToday, autoFillYesterday, getYesterdayQuality } = useSleepLogs();
   const [cosyMugFill, setCosyMugFill] = useState(0);
+  const { showBufferAlert, showEveningReminder, dismissBufferAlert, dismissEveningReminder } = useBedtimeReminder(bufferMinutes, activatedAt, loaded);
+
+  // Yesterday's glow
+  const [yesterdayGlow, setYesterdayGlow] = useState<GlowType>("none");
+  useEffect(() => {
+    (async () => {
+      const q = await getYesterdayQuality();
+      if (q === null) setYesterdayGlow("none");
+      else if (q >= 70) setYesterdayGlow("green");
+      else if (q >= 40) setYesterdayGlow("yellow");
+      else setYesterdayGlow("red");
+    })();
+  }, [getYesterdayQuality]);
 
   // Auto-fill yesterday's log on mount
   useEffect(() => {
@@ -154,6 +177,7 @@ const HomePage = () => {
               showControls={true}
               onPrev={handlePrevSprite}
               onNext={handleNextSprite}
+              yesterdayGlow={yesterdayGlow}
             />
           </div>
 
@@ -477,6 +501,40 @@ const HomePage = () => {
           ))}
         </div>
       </motion.div>
+
+      {/* 5-min Buffer Alert */}
+      <AlertDialog open={showBufferAlert} onOpenChange={dismissBufferAlert}>
+        <AlertDialogContent className="rounded-2xl max-w-xs mx-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center text-lg">🌙 5 Minutes Until Bedtime!</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Time to start winding down. Put away your screens and get cozy — your sprite is counting on you!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center">
+            <AlertDialogAction onClick={dismissBufferAlert} className="rounded-xl">
+              Got it!
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 8PM Evening Reminder */}
+      <AlertDialog open={showEveningReminder} onOpenChange={dismissEveningReminder}>
+        <AlertDialogContent className="rounded-2xl max-w-xs mx-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center text-lg">🛏️ Time to Plan Your Sleep!</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              It's 8 PM — set your screen time and bedtime for tonight in the Plan page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center">
+            <AlertDialogAction onClick={dismissEveningReminder} className="rounded-xl">
+              Let's go!
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

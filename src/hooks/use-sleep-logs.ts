@@ -182,6 +182,18 @@ export function useSleepLogs() {
     loadTodayLog();
   }, [loadTodayLog]);
 
+  // Get yesterday's quality (for sprite glow)
+  const getYesterdayQuality = useCallback(async (): Promise<number | null> => {
+    const yesterday = getYesterdayDate();
+    const { data } = await supabase
+      .from("sleep_logs")
+      .select("quality")
+      .eq("device_id", deviceId.current)
+      .eq("date", yesterday)
+      .maybeSingle();
+    return data?.quality ?? null;
+  }, []);
+
   return {
     logs,
     todayLog,
@@ -190,5 +202,6 @@ export function useSleepLogs() {
     collectToday,
     timeoutToday,
     autoFillYesterday,
+    getYesterdayQuality,
   };
 }
