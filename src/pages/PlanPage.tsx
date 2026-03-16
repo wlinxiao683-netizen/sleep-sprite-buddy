@@ -27,6 +27,7 @@ const PlanPage = () => {
     activate,
     resetActivation,
   } = useSleepPlan();
+  const { resetTodayLog } = useSleepLogs();
 
   // Brain dump state
   const [worryInput, setWorryInput] = useState("");
