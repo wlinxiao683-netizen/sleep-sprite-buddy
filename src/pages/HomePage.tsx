@@ -1,9 +1,19 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Unlock, Sparkles, ExternalLink, Check, Gift, Star, Zap, Clock, Hourglass, Orbit, Sprout, Coffee } from "lucide-react";
 import { useState, useEffect } from "react";
-import SleepSprite, { SpriteType, spriteNames } from "@/components/SleepSprite";
+import SleepSprite, { SpriteType, spriteNames, GlowType } from "@/components/SleepSprite";
 import { useSleepPlan } from "@/hooks/use-sleep-plan";
 import { useSleepLogs } from "@/hooks/use-sleep-logs";
+import { useBedtimeReminder } from "@/hooks/use-bedtime-reminder";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const spriteOrder: SpriteType[] = ["unicorn", "koala", "sheep", "cat"];
 
