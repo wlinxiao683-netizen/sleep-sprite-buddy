@@ -194,6 +194,17 @@ export function useSleepLogs() {
     return data?.quality ?? null;
   }, []);
 
+  // Reset today's log so mug can be re-collected after plan reset
+  const resetTodayLog = useCallback(async () => {
+    const today = getTodayDate();
+    await supabase
+      .from("sleep_logs")
+      .delete()
+      .eq("device_id", deviceId.current)
+      .eq("date", today);
+    setTodayLog(null);
+  }, []);
+
   return {
     logs,
     todayLog,
@@ -203,5 +214,6 @@ export function useSleepLogs() {
     timeoutToday,
     autoFillYesterday,
     getYesterdayQuality,
+    resetTodayLog,
   };
 }
