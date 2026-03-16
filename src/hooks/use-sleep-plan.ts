@@ -207,15 +207,19 @@ export function useSleepPlan() {
       .eq("device_id", deviceId.current);
   }, []);
 
-  // Update buffer every minute based on current time
+  // Update buffer every minute based on current time (only after 6 PM)
   useEffect(() => {
     if (!loaded) return;
     const interval = setInterval(() => {
-      const newBuffer = calcBuffer(bedtime);
-      setBufferState(newBuffer);
+      if (isAfter6PM()) {
+        const newBuffer = calcBuffer(bedtime);
+        setBufferState(newBuffer);
+      }
     }, 60000);
     return () => clearInterval(interval);
   }, [loaded, bedtime]);
+
+  const isBufferActive = isAfter6PM();
 
   return {
     bedtime,
