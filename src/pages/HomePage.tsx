@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Unlock, Sparkles, ExternalLink, Check, Gift, Star, Zap, Clock, Hourglass, Orbit, Sprout, Coffee } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Sparkles, Gift, Star, Heart } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import SleepSprite, { SpriteType, spriteNames, GlowType } from "@/components/SleepSprite";
-import { useSleepPlan } from "@/hooks/use-sleep-plan";
+import { useSleepPlanContext } from "@/contexts/sleep-plan-context";
 import { useSleepLogs } from "@/hooks/use-sleep-logs";
 import { useBedtimeReminder } from "@/hooks/use-bedtime-reminder";
 import {
@@ -14,12 +15,31 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  addHappinessPoint,
+  clearHappinessPoints,
+  getHappinessPoints,
+  getOwnedRedeemableDecorIds,
+  HAPPINESS_POINTS_PER_REWARD,
+  qualifiesForHappinessPoint,
+  redeemDecorationForPoints,
+  REDEEMABLE_DECORATIONS,
+  type DecorationId,
+} from "@/lib/happiness-bubble-points";
 
-const spriteOrder: SpriteType[] = ["unicorn", "koala", "sheep", "cat"];
+/** Today page only shows Lulu (unicorn). */
+const LULU_SPRITE: SpriteType = "unicorn";
 
 interface ThermosBubble {
   id: number;
-  icon: "classic" | "cosmic" | "nature" | "cozy";
   label: string;
   reward: string;
   fill: number;
@@ -27,24 +47,43 @@ interface ThermosBubble {
   distance: number;
 }
 
-const thermosIcons = {
-  classic: Hourglass,
-  cosmic: Orbit,
-  nature: Sprout,
-  cozy: Coffee,
-};
+const HAPPINESS_BUBBLE_ID = 0;
+
+const DECORATION_ITEMS: {
+  key: string;
+  icon: string;
+  name: string;
+  redeemId: DecorationId | null;
+}[] = [
+  { key: "golden_star", icon: "⭐", name: "Golden Star", redeemId: null },
+  { key: "night_crown", icon: "👑", name: "Night Crown", redeemId: null },
+  { key: "dream_wings", icon: "🦋", name: "Dream Wings", redeemId: "dream_wings" },
+  { key: "moon_halo", icon: "🌙", name: "Moon Halo", redeemId: "moon_halo" },
+];
 
 const HomePage = () => {
-  const [currentSpriteIndex, setCurrentSpriteIndex] = useState(0);
   const sleepHours = 7.75;
-  const currentSprite = spriteOrder[currentSpriteIndex];
   const [spriteXP, setSpriteXP] = useState(1280);
   const [claimedRewards, setClaimedRewards] = useState<number[]>([]);
   const [showReward, setShowReward] = useState<string | null>(null);
-  const { getCosyMugFill, activatedAt, resetActivation, bedtime, wakeTime, bufferMinutes, loaded } = useSleepPlan();
+  const { getCosyMugFill, activatedAt, resetActivation, bedtime, wakeTime, bufferMinutes, loaded } =
+    useSleepPlanContext();
   const { isTodayDone, collectToday, timeoutToday, autoFillYesterday, getYesterdayQuality } = useSleepLogs();
   const [cosyMugFill, setCosyMugFill] = useState(0);
-  const { showBufferAlert, showEveningReminder, dismissBufferAlert, dismissEveningReminder } = useBedtimeReminder(bufferMinutes, activatedAt, loaded);
+  const { showBufferAlert, dismissBufferAlert } = useBedtimeReminder(bufferMinutes, activatedAt, loaded);
+
+  const [happinessPoints, setHappinessPointsState] = useState(0);
+  const [ownedRedeemDecor, setOwnedRedeemDecor] = useState<Set<DecorationId>>(() => new Set());
+  const [redeemSheetOpen, setRedeemSheetOpen] = useState(false);
+
+  const refreshHappinessProgress = useCallback(() => {
+    setHappinessPointsState(getHappinessPoints());
+    setOwnedRedeemDecor(getOwnedRedeemableDecorIds());
+  }, []);
+
+  useEffect(() => {
+    refreshHappinessProgress();
+  }, [refreshHappinessProgress]);
 
   // Yesterday's glow
   const [yesterdayGlow, setYesterdayGlow] = useState<GlowType>("none");
@@ -87,56 +126,76 @@ const HomePage = () => {
   }, [getCosyMugFill, resetActivation, isTodayDone, timeoutToday, bedtime, wakeTime]);
 
   const [thermosBubbles, setThermosBubbles] = useState<ThermosBubble[]>([
-    { id: 0, icon: "classic", label: "Capsule", reward: "Starry Scarf", fill: 0, angle: -75, distance: 155 },
-    { id: 1, icon: "cosmic", label: "Cosmic", reward: "+80 XP", fill: 0, angle: 55, distance: 160 },
-    { id: 2, icon: "nature", label: "Sprout", reward: "Night Sky BG", fill: 0, angle: -40, distance: 145 },
-    { id: 3, icon: "cozy", label: "Cozy Mug", reward: "Golden Hat", fill: 0, angle: 80, distance: 150 },
+    {
+      id: HAPPINESS_BUBBLE_ID,
+      label: "Happiness Bubble",
+      reward: "Happiness Bubble",
+      fill: 0,
+      angle: 0,
+      distance: 118,
+    },
   ]);
 
-  // Sync Cozy Mug fill with activation timer
   useEffect(() => {
     setThermosBubbles((prev) =>
-      prev.map((b) => (b.id === 3 ? { ...b, fill: cosyMugFill } : b))
+      prev.map((b) => (b.id === HAPPINESS_BUBBLE_ID ? { ...b, fill: cosyMugFill } : b))
     );
   }, [cosyMugFill]);
 
-  const [contentFeed, setContentFeed] = useState([
-    { id: 1, type: "video", title: "Lo-fi Beats Playlist", source: "YouTube", url: "#", enjoyed: false, xp: 15 },
-    { id: 2, type: "article", title: "10 Tips for Better Morning Routines", source: "Medium", url: "#", enjoyed: false, xp: 10 },
-    { id: 3, type: "game", title: "Stardew Valley - Farm Screenshot", source: "Steam", url: "#", enjoyed: false, xp: 20 },
-  ]);
-
-  const handlePrevSprite = () => {
-    setCurrentSpriteIndex((prev) => (prev - 1 + spriteOrder.length) % spriteOrder.length);
-  };
-  const handleNextSprite = () => {
-    setCurrentSpriteIndex((prev) => (prev + 1) % spriteOrder.length);
-  };
-
   const handleClaimReward = async (bubble: ThermosBubble) => {
-    // Only cozy mug (id 3) can be claimed, only when fill > 0, not already claimed, and not done today
-    if (bubble.id !== 3 || bubble.fill <= 0 || claimedRewards.includes(bubble.id) || isTodayDone) return;
+    if (
+      bubble.id !== HAPPINESS_BUBBLE_ID ||
+      bubble.fill <= 0 ||
+      claimedRewards.includes(bubble.id) ||
+      isTodayDone
+    ) {
+      return;
+    }
     setClaimedRewards((prev) => [...prev, bubble.id]);
     setShowReward(bubble.reward);
-    // Record collection in sleep_logs
     await collectToday(bubble.fill, bedtime, wakeTime);
-    // Reset activation since it's been collected
     await resetActivation();
-    if (bubble.reward.includes("XP")) {
-      const xpMatch = bubble.reward.match(/\d+/);
-      if (xpMatch) setSpriteXP((prev) => prev + parseInt(xpMatch[0]));
+
+    const collectedAt = new Date();
+    if (qualifiesForHappinessPoint(bedtime, collectedAt)) {
+      const next = addHappinessPoint();
+      setHappinessPointsState(next);
+      toast.success(`+1 happiness point (${next}/${HAPPINESS_POINTS_PER_REWARD})`);
+    } else {
+      toast.message(
+        "Collected — no point today. Collect on or before bedtime, or within 10 minutes after, to earn a happiness point."
+      );
     }
+
     setTimeout(() => setShowReward(null), 2500);
   };
 
-  const handleEnjoyed = (id: number) => {
-    setContentFeed((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, enjoyed: true } : item))
-    );
-    const item = contentFeed.find((i) => i.id === id);
-    if (item) {
-      setSpriteXP((prev) => prev + item.xp);
+  const allRedeemableOwned =
+    REDEEMABLE_DECORATIONS.every((d) => ownedRedeemDecor.has(d.id));
+
+  const openRedeemFlow = () => {
+    if (happinessPoints < HAPPINESS_POINTS_PER_REWARD) {
+      toast.message(
+        `Earn ${HAPPINESS_POINTS_PER_REWARD} happiness points (on-time collections) to redeem a decoration.`
+      );
+      return;
     }
+    setRedeemSheetOpen(true);
+  };
+
+  const handleRedeemPick = (id: DecorationId, name: string) => {
+    if (redeemDecorationForPoints(id)) {
+      refreshHappinessProgress();
+      toast.success(`Unlocked ${name}!`);
+      setRedeemSheetOpen(false);
+    }
+  };
+
+  const handleClearPointsWhenFullyUnlocked = () => {
+    clearHappinessPoints();
+    setHappinessPointsState(0);
+    setRedeemSheetOpen(false);
+    toast.message("Happiness points cleared.");
   };
 
   const spriteStatus = sleepHours >= 8
@@ -148,10 +207,10 @@ const HomePage = () => {
     : { text: "Needs more sleep!", emoji: "😴" };
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen pb-24 px-6">
       {/* Header */}
       <motion.div
-        className="px-6 pt-8 pb-2"
+        className="pt-8 pb-2"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -162,7 +221,7 @@ const HomePage = () => {
 
       {/* Sprite + Thermos Bubbles */}
       <motion.div
-        className="flex flex-col items-center pt-4 pb-2 px-8"
+        className="flex flex-col items-center pt-4 pb-2"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.2 }}
@@ -171,22 +230,19 @@ const HomePage = () => {
           {/* Sprite centered */}
           <div className="absolute inset-0 flex items-center justify-center">
             <SleepSprite
-              spriteType={currentSprite}
+              spriteType={LULU_SPRITE}
               sleepHours={sleepHours}
               size="lg"
-              showControls={true}
-              onPrev={handlePrevSprite}
-              onNext={handleNextSprite}
+              showControls={false}
               yesterdayGlow={yesterdayGlow}
             />
           </div>
 
           {/* Floating thermos bubbles */}
           {thermosBubbles.map((bubble) => {
-            const isCozyMug = bubble.id === 3;
-            const isFull = bubble.fill >= 100;
+            const isHappinessBubble = bubble.id === HAPPINESS_BUBBLE_ID;
             const isClaimed = claimedRewards.includes(bubble.id);
-            const canClaim = isCozyMug && bubble.fill > 0 && !isClaimed;
+            const canClaim = isHappinessBubble && bubble.fill > 0 && !isClaimed;
             const rad = (bubble.angle * Math.PI) / 180;
             const x = 150 + bubble.distance * Math.sin(rad) - 28;
             const y = 150 - bubble.distance * Math.cos(rad) - 28;
@@ -201,7 +257,7 @@ const HomePage = () => {
                   y: [0, -5, 0],
                 }}
                 transition={{
-                  y: { duration: 2.5 + bubble.id * 0.3, repeat: Infinity, ease: "easeInOut" },
+                  y: { duration: 2.6, repeat: Infinity, ease: "easeInOut" },
                 }}
                 whileHover={canClaim ? { scale: 1.15 } : {}}
                 whileTap={canClaim ? { scale: 0.9 } : {}}
@@ -233,7 +289,7 @@ const HomePage = () => {
                       <Sparkles className="w-4 h-4 text-primary" />
                     ) : (
                       <>
-                        {(() => { const Icon = thermosIcons[bubble.icon]; return <Icon className="w-5 h-5 text-primary" />; })()}
+                        <Heart className="w-5 h-5 text-primary" />
                         <span className="text-[7px] font-medium text-muted-foreground mt-0.5">
                           {bubble.fill}%
                         </span>
@@ -252,7 +308,7 @@ const HomePage = () => {
                 </div>
 
                 {/* Label */}
-                <span className="block text-[8px] text-muted-foreground text-center mt-0.5 font-medium">
+                <span className="block text-[8px] text-muted-foreground text-center mt-0.5 font-medium max-w-[72px] leading-tight">
                   {isClaimed ? "✓" : bubble.label}
                 </span>
 
@@ -281,19 +337,6 @@ const HomePage = () => {
           })}
         </div>
 
-        {/* Sprite indicator dots */}
-        <div className="flex gap-2 mt-1">
-          {spriteOrder.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentSpriteIndex(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentSpriteIndex ? "bg-primary w-4" : "bg-muted-foreground/30"
-              }`}
-            />
-          ))}
-        </div>
-
         {/* Sprite status */}
         <motion.div
           className="mt-2 text-center"
@@ -302,7 +345,7 @@ const HomePage = () => {
           transition={{ delay: 0.4 }}
         >
           <p className="text-lg font-semibold text-foreground">
-            {spriteNames[currentSprite]} {spriteStatus.emoji}
+            {spriteNames[LULU_SPRITE]} {spriteStatus.emoji}
           </p>
           <p className="text-sm text-muted-foreground">{spriteStatus.text}</p>
           <div className="flex items-center justify-center gap-2 mt-1">
@@ -322,94 +365,59 @@ const HomePage = () => {
             >
               <span className="text-xs text-primary font-medium flex items-center gap-1.5">
                 <Gift className="w-3.5 h-3.5" />
-                Unlocked: {showReward}
+                Collected: {showReward}
               </span>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
 
-      {/* Stats Row */}
-      <motion.div
-        className="grid grid-cols-3 gap-3 px-6 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        {[
-          { label: "Days Active", value: "15", icon: Clock },
-          { label: "Sleep Streak", value: "7 🔥", icon: Zap },
-          { label: "Total Stars", value: `${spriteXP}`, icon: Star },
-        ].map((stat, index) => (
-          <div key={index} className="glass-card p-3 text-center">
-            <stat.icon className="w-4 h-4 text-primary mx-auto mb-1" />
-            <p className="text-lg font-bold text-foreground">{stat.value}</p>
-            <p className="text-[10px] text-muted-foreground">{stat.label}</p>
-          </div>
-        ))}
-      </motion.div>
-
-      {/* Thermos Rewards Row */}
+      {/* Happiness points only — fill/collect is the bubble above the sprite */}
       <motion.div
         className="mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45 }}
+        transition={{ delay: 0.4 }}
       >
-        <div className="flex items-center justify-between px-6 mb-2">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-            <Gift className="w-4 h-4 text-primary" />
-            Rewards
-          </h2>
-          <span className="text-[10px] text-muted-foreground">{claimedRewards.length}/{thermosBubbles.length} claimed</span>
-        </div>
-
-        <div className="flex gap-3 overflow-x-auto px-6 pb-2 scrollbar-hide">
-          {thermosBubbles.map((bubble, index) => {
-            const isClaimed = claimedRewards.includes(bubble.id);
-            const isFull = bubble.fill >= 100;
-            return (
-              <motion.div
-                key={bubble.id}
-                className={`glass-card p-3 flex-shrink-0 w-24 relative overflow-hidden transition-all ${
-                  isClaimed ? "opacity-50" : ""
-                }`}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + index * 0.08 }}
-              >
-                <div
-                  className="absolute bottom-0 left-0 right-0 transition-all duration-700"
-                  style={{
-                    height: `${bubble.fill}%`,
-                    background: isClaimed
-                      ? "hsl(var(--primary) / 0.08)"
-                      : "linear-gradient(to top, hsl(var(--primary) / 0.18), hsl(var(--accent) / 0.05))",
-                  }}
-                />
-                <div className="relative z-10 flex flex-col items-center text-center gap-1">
-                  {(() => { const Icon = thermosIcons[bubble.icon]; return <Icon className="w-4 h-4 text-primary" />; })()}
-                  <p className="text-[10px] font-semibold text-foreground">{bubble.label}</p>
-                  <div className="w-full h-1 rounded-full bg-muted/50">
-                    <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${bubble.fill}%` }} />
-                  </div>
-                  {isClaimed ? (
-                    <Check className="w-3 h-3 text-primary" />
-                  ) : isFull ? (
-                    <Sparkles className="w-3 h-3 text-primary animate-pulse" />
-                  ) : (
-                    <span className="text-[9px] text-muted-foreground">{bubble.fill}%</span>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+        <button
+          type="button"
+          onClick={openRedeemFlow}
+          className={`w-full glass-card p-4 text-left transition-all rounded-2xl border border-transparent ${
+            happinessPoints >= HAPPINESS_POINTS_PER_REWARD
+              ? "ring-2 ring-primary/50 cursor-pointer hover:bg-primary/5"
+              : "opacity-95"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Heart className="w-4 h-4 text-primary" />
+              Happiness points
+            </span>
+            <span className="text-xs font-medium text-primary tabular-nums">
+              {happinessPoints} / {HAPPINESS_POINTS_PER_REWARD}
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full bg-muted/60 overflow-hidden mb-2">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-500"
+              style={{
+                width: `${(happinessPoints / HAPPINESS_POINTS_PER_REWARD) * 100}%`,
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground leading-snug">
+            On-time bubble collections earn <span className="text-foreground font-medium">1 point</span> per day.
+            At <span className="text-foreground font-medium">3 points</span>, tap here to redeem a decoration.
+          </p>
+          {happinessPoints >= HAPPINESS_POINTS_PER_REWARD && (
+            <p className="text-[10px] text-primary font-medium mt-2">Tap to redeem — 3 points</p>
+          )}
+        </button>
       </motion.div>
 
       {/* Decorations & Collectibles */}
       <motion.div
-        className="px-6 mb-6"
+        className="mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
@@ -419,88 +427,68 @@ const HomePage = () => {
           Decorations
         </h2>
         <div className="grid grid-cols-4 gap-3">
-          {[
-            { icon: "⭐", name: "Golden Star", unlocked: true },
-            { icon: "👑", name: "Night Crown", unlocked: true },
-            { icon: "🦋", name: "Dream Wings", unlocked: false },
-            { icon: "🌙", name: "Moon Halo", unlocked: false },
-          ].map((item, i) => (
-            <motion.div
-              key={i}
-              className={`glass-card aspect-square rounded-xl flex flex-col items-center justify-center gap-1 ${
-                item.unlocked ? "bg-primary/10" : "bg-muted/30"
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className={`text-2xl ${!item.unlocked && "opacity-30 grayscale"}`}>{item.icon}</span>
-              <span className="text-[8px] text-muted-foreground font-medium">{item.unlocked ? item.name : "🔒"}</span>
-            </motion.div>
-          ))}
+          {DECORATION_ITEMS.map((item) => {
+            const unlocked =
+              item.redeemId === null || ownedRedeemDecor.has(item.redeemId);
+            return (
+              <motion.div
+                key={item.key}
+                className={`glass-card aspect-square rounded-xl flex flex-col items-center justify-center gap-1 ${
+                  unlocked ? "bg-primary/10" : "bg-muted/30"
+                }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <span className={`text-2xl ${!unlocked && "opacity-30 grayscale"}`}>{item.icon}</span>
+                <span className="text-[8px] text-muted-foreground font-medium text-center px-0.5 leading-tight">
+                  {unlocked ? item.name : "🔒 3 pts"}
+                </span>
+              </motion.div>
+            );
+          })}
         </div>
       </motion.div>
 
-      {/* Content Feed */}
-      <motion.div
-        className="px-6 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.55 }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-            <Gift className="w-4 h-4 text-primary" />
-            Saved for Later
-          </h2>
-          <span className="text-[10px] text-muted-foreground">From last night</span>
-        </div>
-
-        <div className="space-y-3">
-          {contentFeed.map((item, index) => (
-            <motion.div
-              key={item.id}
-              className={`glass-card p-4 transition-all ${item.enjoyed ? "opacity-60" : ""}`}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.55 + index * 0.1 }}
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-lg">
-                    {item.type === "video" ? "🎬" : item.type === "article" ? "📄" : "🎮"}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.source}</p>
-                </div>
-                <a
-                  href={item.url}
-                  className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0 hover:bg-muted/70 transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                </a>
+      <Sheet open={redeemSheetOpen} onOpenChange={setRedeemSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh]">
+          <SheetHeader>
+            <SheetTitle>Redeem decoration</SheetTitle>
+            <SheetDescription>
+              Spend {HAPPINESS_POINTS_PER_REWARD} happiness points to unlock one item.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-3 pb-8">
+            {allRedeemableOwned && happinessPoints >= HAPPINESS_POINTS_PER_REWARD ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  You already unlocked every happiness decoration. Clear your points to start saving again.
+                </p>
+                <Button type="button" className="w-full rounded-xl" onClick={handleClearPointsWhenFullyUnlocked}>
+                  Clear {happinessPoints} points
+                </Button>
               </div>
-
-              {!item.enjoyed ? (
-                <motion.button
-                  className="mt-3 w-full py-2 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 btn-gradient"
-                  onClick={() => handleEnjoyed(item.id)}
-                  whileTap={{ scale: 0.97 }}
+            ) : (
+              REDEEMABLE_DECORATIONS.filter((d) => !ownedRedeemDecor.has(d.id)).map((d) => (
+                <Button
+                  key={d.id}
+                  type="button"
+                  variant="secondary"
+                  className="w-full h-auto py-3 rounded-xl justify-start gap-3"
+                  onClick={() => handleRedeemPick(d.id, d.name)}
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  Mark as Enjoyed (+{item.xp} XP)
-                </motion.button>
-              ) : (
-                <div className="mt-3 w-full py-2 text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-primary" />
-                  Enjoyed — XP added to {spriteNames[currentSprite]}
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+                  <span className="text-2xl">{d.icon}</span>
+                  <span className="flex flex-col items-start text-left">
+                    <span className="font-semibold text-foreground">{d.name}</span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {HAPPINESS_POINTS_PER_REWARD} happiness points
+                    </span>
+                  </span>
+                </Button>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* 5-min Buffer Alert */}
       <AlertDialog open={showBufferAlert} onOpenChange={dismissBufferAlert}>
@@ -519,22 +507,6 @@ const HomePage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 8PM Evening Reminder */}
-      <AlertDialog open={showEveningReminder} onOpenChange={dismissEveningReminder}>
-        <AlertDialogContent className="rounded-2xl max-w-xs mx-auto">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-center text-lg">🛏️ Time to Plan Your Sleep!</AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
-              It's 8 PM — set your screen time and bedtime for tonight in the Plan page.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="justify-center">
-            <AlertDialogAction onClick={dismissEveningReminder} className="rounded-xl">
-              Let's go!
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

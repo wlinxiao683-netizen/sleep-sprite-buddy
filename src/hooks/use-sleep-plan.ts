@@ -49,6 +49,8 @@ export function useSleepPlan() {
   const [alarmEnabled, setAlarmEnabled] = useState(true);
   const [activatedAt, setActivatedAt] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  /** True once a row exists in sleep_plans for this device (load or after save). */
+  const [hasSleepPlanRow, setHasSleepPlanRow] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const deviceId = useRef(getDeviceId());
 
@@ -62,6 +64,7 @@ export function useSleepPlan() {
         .maybeSingle();
 
       if (data) {
+        setHasSleepPlanRow(true);
         setBedtimeState(data.bedtime);
         setWakeTimeState(data.wake_time);
         setBufferState(data.buffer_minutes);
@@ -81,7 +84,7 @@ export function useSleepPlan() {
     (bed: string, wake: string, buffer: number, alarm: boolean) => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
-        await supabase
+        const { error } = await supabase
           .from("sleep_plans")
           .upsert(
             {
@@ -93,6 +96,7 @@ export function useSleepPlan() {
             },
             { onConflict: "device_id" }
           );
+        if (!error) setHasSleepPlanRow(true);
       }, 500);
     },
     []
@@ -142,7 +146,7 @@ export function useSleepPlan() {
   const activate = useCallback(async () => {
     const now = new Date().toISOString();
     setActivatedAt(now);
-    await supabase
+    const { error } = await supabase
       .from("sleep_plans")
       .upsert(
         {
@@ -155,6 +159,7 @@ export function useSleepPlan() {
         } as any,
         { onConflict: "device_id" }
       );
+    if (!error) setHasSleepPlanRow(true);
   }, [bedtime, wakeTime, bufferMinutes, alarmEnabled]);
 
   /** Get the cozy mug fill percentage (0-100) based on elapsed time since activation.
@@ -215,6 +220,7 @@ export function useSleepPlan() {
     alarmEnabled,
     activatedAt,
     loaded,
+    hasSleepPlanRow,
     setBedtime,
     setWakeTime,
     setBufferMinutes,

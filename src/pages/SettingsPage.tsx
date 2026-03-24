@@ -1,24 +1,80 @@
 import { motion } from "framer-motion";
 import {
   User, Palette, Bell, Shield, FileText, ChevronRight, Moon, Volume2,
-  Bluetooth, BatteryMedium, Wifi, Sparkles, CloudRain, Wind, VolumeX,
-  Lightbulb, Star, Lock,
+  Star, Clock, Smartphone, BellRing,
 } from "lucide-react";
-import { useState } from "react";
-import { Slider } from "@/components/ui/slider";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { useEveningReminderSettings } from "@/contexts/evening-reminder-context";
+import { useSleepPlanContext } from "@/contexts/sleep-plan-context";
+import { useStandReminderPreview } from "@/contexts/stand-reminder-preview-context";
+
+const REMINDER_HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const REMINDER_MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+
+function splitReminderTime(s: string): { h: string; m: string } {
+  const [a, b] = s.split(":");
+  const hNum = Math.min(23, Math.max(0, parseInt(a ?? "20", 10) || 20));
+  const mNum = Math.min(59, Math.max(0, parseInt(b ?? "0", 10) || 0));
+  return { h: String(hNum).padStart(2, "0"), m: String(mNum).padStart(2, "0") };
+}
 
 const ProfilePage = () => {
   const [notifications, setNotifications] = useState(true);
   const [sounds, setSounds] = useState(true);
-  const [selectedNoise, setSelectedNoise] = useState<string>("rain");
-  const [selectedColor, setSelectedColor] = useState<string>("purple");
+  const {
+    eveningReminderEnabled,
+    setEveningReminderEnabled,
+    eveningReminderTime,
+    setEveningReminderTime,
+  } = useEveningReminderSettings();
+  const { loaded } = useSleepPlanContext();
+  const { requestStandReminderPreview } = useStandReminderPreview();
   const [sleepPoints] = useState(1280);
+  const [browserNotifPermission, setBrowserNotifPermission] =
+    useState<NotificationPermission>("default");
 
-  const noiseOptions = [
-    { id: "rain", label: "Rain", icon: CloudRain },
-    { id: "wind", label: "Wind", icon: Wind },
-    { id: "silent", label: "Silent", icon: VolumeX },
-  ];
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setBrowserNotifPermission(Notification.permission);
+    }
+  }, []);
+
+  const handleEnableBrowserNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      toast.error("This browser does not support notifications.");
+      return;
+    }
+    try {
+      const result = await Notification.requestPermission();
+      setBrowserNotifPermission(Notification.permission);
+      if (result === "granted") {
+        toast.success(
+          "Notifications enabled — you’ll get alerts for your sleep-time reminder and the stand reminder (30 min before bed), even when this tab is in the background."
+        );
+      } else if (result === "denied") {
+        toast.message(
+          "Notifications are blocked. Allow this site in your browser settings if you want reminders while using other tabs."
+        );
+      }
+    } catch {
+      toast.error("Could not request notification permission.");
+    }
+  };
+
+  const { h: reminderHour, m: reminderMinute } = useMemo(
+    () => splitReminderTime(eveningReminderTime),
+    [eveningReminderTime]
+  );
 
   const colorOptions = [
     { id: "purple", label: "Lavender", color: "hsl(var(--primary))" },
@@ -115,168 +171,6 @@ const ProfilePage = () => {
         <ChevronRight className="w-5 h-5 text-muted-foreground" />
       </motion.div>
 
-      {/* Hardware Connection & Status */}
-      <motion.div
-        className="glass-card p-5 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-      >
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">Hardware Status</h3>
-
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center">
-            <Bluetooth className="w-7 h-7 text-primary" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-foreground">SleepWell Lamp</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Wifi className="w-3.5 h-3.5 text-sleep-success" />
-              <span className="text-xs text-sleep-success font-medium">Connected</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-muted/30 rounded-xl p-3 flex items-center gap-3">
-            <BatteryMedium className="w-5 h-5 text-sleep-success" />
-            <div>
-              <p className="text-xs text-muted-foreground">Battery</p>
-              <p className="text-sm font-bold text-foreground">72%</p>
-            </div>
-          </div>
-          <div className="bg-muted/30 rounded-xl p-3 flex items-center gap-3">
-            <Wifi className="w-5 h-5 text-primary" />
-            <div>
-              <p className="text-xs text-muted-foreground">Signal</p>
-              <p className="text-sm font-bold text-foreground">Strong</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Sprite Skins */}
-      <motion.div
-        className="glass-card p-5 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <h3 className="text-sm font-medium text-muted-foreground mb-1">Sprite Wardrobe</h3>
-        <p className="text-xs text-muted-foreground mb-4">
-          Redeem sleep points for new outfits
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          {spriteSkins.map((skin) => (
-            <div
-              key={skin.id}
-              className={`relative p-4 rounded-xl border transition-all ${
-                skin.owned
-                  ? "bg-primary/10 border-primary/30"
-                  : "bg-muted/20 border-border/50"
-              }`}
-            >
-              <span className="text-2xl">{skin.emoji}</span>
-              <p className="text-sm font-medium text-foreground mt-2">{skin.name}</p>
-              {skin.owned ? (
-                <span className="text-xs text-sleep-success font-medium">Owned</span>
-              ) : (
-                <div className="flex items-center gap-1 mt-1">
-                  <Lock className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{skin.cost} pts</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* White Noise Preference */}
-      <motion.div
-        className="glass-card p-5 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-      >
-        <h3 className="text-sm font-medium text-muted-foreground mb-1">Sleep Sound</h3>
-        <p className="text-xs text-muted-foreground mb-4">
-          White noise type for your hardware
-        </p>
-
-        <div className="grid grid-cols-3 gap-3">
-          {noiseOptions.map((option) => {
-            const Icon = option.icon;
-            const isActive = selectedNoise === option.id;
-            return (
-              <button
-                key={option.id}
-                onClick={() => setSelectedNoise(option.id)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
-                  isActive
-                    ? "bg-primary/15 border-primary/40 shadow-sm shadow-primary/10"
-                    : "bg-muted/20 border-border/50 hover:border-primary/20"
-                }`}
-              >
-                <Icon
-                  className={`w-6 h-6 ${isActive ? "text-primary" : "text-muted-foreground"}`}
-                />
-                <span
-                  className={`text-xs font-medium ${
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  {option.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </motion.div>
-
-      {/* Light Effect Settings */}
-      <motion.div
-        className="glass-card p-5 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <h3 className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-2">
-          <Lightbulb className="w-4 h-4" />
-          Light Effect
-        </h3>
-        <p className="text-xs text-muted-foreground mb-4">
-          Hardware lamp color during wind-down
-        </p>
-
-        <div className="flex gap-3">
-          {colorOptions.map((option) => {
-            const isActive = selectedColor === option.id;
-            return (
-              <button
-                key={option.id}
-                onClick={() => setSelectedColor(option.id)}
-                className="flex flex-col items-center gap-2"
-              >
-                <div
-                  className={`w-12 h-12 rounded-full transition-all duration-300 ${
-                    isActive ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110" : "opacity-60 hover:opacity-80"
-                  }`}
-                  style={{ backgroundColor: option.color }}
-                />
-                <span
-                  className={`text-xs ${
-                    isActive ? "text-foreground font-medium" : "text-muted-foreground"
-                  }`}
-                >
-                  {option.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </motion.div>
-
       {/* Quick Toggles */}
       <motion.div
         className="glass-card p-4 mb-6 space-y-4"
@@ -284,6 +178,45 @@ const ProfilePage = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
       >
+        <div className="space-y-3 pb-4 border-b border-border/50">
+          <div className="flex items-start gap-3">
+            <BellRing className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div className="space-y-2 min-w-0 flex-1">
+              <p className="font-medium text-foreground">Browser notifications</p>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Tap below to allow. When granted, your <span className="text-foreground/90">daily sleep-time reminder</span>{" "}
+                and <span className="text-foreground/90">stand reminder</span> (30 minutes before your Plan bedtime) can
+                show as system alerts while you browse other sites — keep this tab open in the background.
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Status:{" "}
+                <span className="font-medium text-foreground capitalize">
+                  {browserNotifPermission === "granted"
+                    ? "allowed"
+                    : browserNotifPermission === "denied"
+                      ? "blocked"
+                      : "not set"}
+                </span>
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full rounded-xl h-11"
+                disabled={
+                  typeof window !== "undefined" &&
+                  "Notification" in window &&
+                  Notification.permission === "granted"
+                }
+                onClick={handleEnableBrowserNotifications}
+              >
+                {browserNotifPermission === "granted"
+                  ? "Browser notifications enabled"
+                  : "Enable browser notifications"}
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Bell className="w-5 h-5 text-primary" />
@@ -304,6 +237,93 @@ const ProfilePage = () => {
             </div>
           </div>
           <Toggle value={sounds} onChange={setSounds} />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-primary" />
+            <div>
+              <p className="font-medium text-foreground">Daily sleep reminder</p>
+              <p className="text-xs text-muted-foreground">Popup to plan tonight&apos;s sleep</p>
+            </div>
+          </div>
+          <Toggle value={eveningReminderEnabled} onChange={setEveningReminderEnabled} />
+        </div>
+
+        {eveningReminderEnabled && (
+          <div className="pl-8 space-y-3 relative z-20 -mt-1">
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              Pick hour and minute below. Changes preview the reminder after a short delay.
+            </p>
+            <span className="text-xs text-muted-foreground block">Reminder time (24h)</span>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5 w-[min(100%,7.5rem)]">
+                <Label htmlFor="evening-reminder-hour" className="text-[10px] text-muted-foreground">
+                  Hour
+                </Label>
+                <Select
+                  value={reminderHour}
+                  onValueChange={(h) => setEveningReminderTime(`${h}:${reminderMinute}`)}
+                >
+                  <SelectTrigger
+                    id="evening-reminder-hour"
+                    className="rounded-xl bg-background/90 h-11 touch-manipulation"
+                  >
+                    <SelectValue placeholder="Hour" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 z-[200]">
+                    {REMINDER_HOURS.map((h) => (
+                      <SelectItem key={h} value={h}>
+                        {h}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 w-[min(100%,7.5rem)]">
+                <Label htmlFor="evening-reminder-minute" className="text-[10px] text-muted-foreground">
+                  Minute
+                </Label>
+                <Select
+                  value={reminderMinute}
+                  onValueChange={(m) => setEveningReminderTime(`${reminderHour}:${m}`)}
+                >
+                  <SelectTrigger
+                    id="evening-reminder-minute"
+                    className="rounded-xl bg-background/90 h-11 touch-manipulation"
+                  >
+                    <SelectValue placeholder="Min" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 z-[200]">
+                    {REMINDER_MINUTES.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            </div>
+        )}
+
+        <div className="pt-4 border-t border-border/50 space-y-3">
+          <div className="flex items-center gap-2">
+            <Smartphone className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-xs text-muted-foreground leading-snug">
+              About 30 minutes before your Plan bedtime, a popup shows: “Lulu&apos;s a bit tired — could you put me on
+              the stand?” plus the image (requires a saved Plan).
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full rounded-xl h-11"
+            disabled={!loaded}
+            onClick={() => requestStandReminderPreview()}
+          >
+            Preview stand reminder popup
+          </Button>
         </div>
       </motion.div>
 

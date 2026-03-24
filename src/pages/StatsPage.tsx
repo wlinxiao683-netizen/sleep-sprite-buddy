@@ -1,10 +1,77 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
-import { Lightbulb, ChevronLeft, ChevronRight, TrendingUp, Calendar as CalendarIcon, Moon, Heart, Clock, Star, Zap, Activity, Gamepad2, Smartphone, Brain, BatteryMedium } from "lucide-react";
+import {
+  Lightbulb,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  Calendar as CalendarIcon,
+  Moon,
+  Heart,
+  Clock,
+  Star,
+  Zap,
+  Activity,
+  BatteryMedium,
+  Sparkles,
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useSleepLogs } from "@/hooks/use-sleep-logs";
 
 const moodEmojis = ["😴", "😊", "😐", "😣", "🌟"];
+
+/** Demo data when DB has few/no logs — real logs override per-day where present */
+const MOCK_MARCH_2026_QUALITY: Record<number, number> = {
+  1: 78, 2: 82, 3: 71, 4: 0, 5: 88, 6: 91, 7: 76,
+  8: 84, 9: 79, 10: 86, 11: 73, 12: 90, 13: 68, 14: 81,
+  15: 77, 16: 89, 17: 72, 18: 85, 19: 92, 20: 80, 21: 74,
+  22: 87, 23: 83, 24: 0, 25: 88, 26: 79, 27: 91, 28: 86,
+  29: 75, 30: 84, 31: 82,
+};
+
+const MOCK_WEEK_DATA = [
+  { day: "Mon", quality: 82, hours: 7.5 },
+  { day: "Tue", quality: 76, hours: 6.9 },
+  { day: "Wed", quality: 88, hours: 8.0 },
+  { day: "Thu", quality: 91, hours: 8.2 },
+  { day: "Fri", quality: 74, hours: 6.8 },
+  { day: "Sat", quality: 85, hours: 7.9 },
+  { day: "Sun", quality: 89, hours: 8.1 },
+];
+
+const MOCK_SLEEP_DEBT = {
+  targetHours: 56,
+  actualHours: 52.5,
+  debtHours: 3.5,
+  energyPercent: 72,
+  dailyBreakdown: [
+    { day: "Mon", diff: 0.3 },
+    { day: "Tue", diff: -0.8 },
+    { day: "Wed", diff: 0.5 },
+    { day: "Thu", diff: 0.2 },
+    { day: "Fri", diff: -1.1 },
+    { day: "Sat", diff: 0.6 },
+    { day: "Sun", diff: -0.4 },
+  ],
+};
+
+const MOCK_YESTERDAY_DETAIL = {
+  totalHours: 7.4,
+  quality: 84,
+  rating: "Good" as const,
+  bedtime: "23:18",
+  wakeTime: "06:42",
+  heartRate: { avg: 58, min: 48, max: 76 },
+  cycles: [
+    { type: "Light", duration: 2, color: "bg-primary/40" },
+    { type: "Deep", duration: 2.5, color: "bg-primary" },
+    { type: "REM", duration: 1.5, color: "bg-purple-400" },
+    { type: "Light", duration: 1.8, color: "bg-primary/40" },
+    { type: "REM", duration: 1.2, color: "bg-purple-400" },
+  ],
+};
 
 const getMoodForDay = (quality: number) => {
   if (quality === 0) return { emoji: "", mood: "none" };
@@ -14,8 +81,48 @@ const getMoodForDay = (quality: number) => {
   return { emoji: "😣", mood: "poor" };
 };
 
+type WeekRow = (typeof MOCK_WEEK_DATA)[number];
+
+/** Local template “AI” — no API; wording follows chart + sleep-debt numbers on this page */
+function buildLocalAiInsights(input: {
+  avgQuality: number;
+  avgHours: number;
+  weekData: WeekRow[];
+  debtHours: number;
+  energyPercent: number;
+}): { weekText: string; nextWeek: string[] } {
+  const { avgQuality, avgHours, weekData, debtHours, energyPercent } = input;
+  const worst = weekData.reduce((a, b) => (a.quality <= b.quality ? a : b));
+  const best = weekData.reduce((a, b) => (a.quality >= b.quality ? a : b));
+  const light =
+    avgQuality >= 84
+      ? "Your week has a bright, steady arc — quality stays in a healthy band."
+      : avgQuality >= 75
+        ? "You’re in a good range overall, with a few edges to smooth."
+        : "There’s a clear signal to protect recovery a bit more next week.";
+
+  const weekText = `${light} Averaging about ${avgQuality}% quality and ${avgHours.toFixed(1)}h sleep per night, sprite energy sits near ${energyPercent}%. You’re carrying roughly ${debtHours}h sleep debt versus target — ${best.day} looked strongest (${best.quality}%), while ${worst.day} asked for a gentler landing (${worst.quality}%).`;
+
+  const nextWeek = [
+    worst.quality < 78
+      ? `Give ${worst.day} a 15–20 minute earlier wind-down — keep screens away for the first few minutes in bed.`
+      : `Keep ${best.day}’s bedtime rhythm as your “anchor” and copy it to one other weekday.`,
+    debtHours >= 3
+      ? `Next week, add one 25-minute sleep window (or nap) on a lighter day to chip away at the ${debtHours}h gap — no guilt, just consistency.`
+      : `Hold wake time within ~30 minutes every day — small drift beats big swings for next week’s curve.`,
+    `Plan one calm evening (stretch, dim light, same room temperature) before your busiest day — it’s the cheapest upgrade for your score.`,
+  ];
+
+  return { weekText, nextWeek };
+}
+
 const InsightsPage = () => {
   const [currentMonth, setCurrentMonth] = useState("March 2026");
+  const [aiInsights, setAiInsights] = useState<{
+    weekText: string;
+    nextWeek: string[];
+  } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const { logs, loadLogs } = useSleepLogs();
 
   // Load March 2026 logs on mount
@@ -23,9 +130,9 @@ const InsightsPage = () => {
     loadLogs(2026, 3);
   }, [loadLogs]);
 
-  // Build a map of day → quality from logs
+  // Demo calendar + real logs (same month) override per day
   const logsByDay = useMemo(() => {
-    const map: Record<number, number> = {};
+    const map: Record<number, number> = { ...MOCK_MARCH_2026_QUALITY };
     logs.forEach((log) => {
       const dayNum = parseInt(log.date.split("-")[2], 10);
       map[dayNum] = log.quality;
@@ -33,15 +140,13 @@ const InsightsPage = () => {
     return map;
   }, [logs]);
 
-  const weekData = [
-    { day: "Mon", quality: 0, hours: 0 },
-    { day: "Tue", quality: 0, hours: 0 },
-    { day: "Wed", quality: 0, hours: 0 },
-    { day: "Thu", quality: 0, hours: 0 },
-    { day: "Fri", quality: 0, hours: 0 },
-    { day: "Sat", quality: 0, hours: 0 },
-    { day: "Sun", quality: 0, hours: 0 },
-  ];
+  const weekData = MOCK_WEEK_DATA;
+
+  const weekSummary = useMemo(() => {
+    const q = MOCK_WEEK_DATA.reduce((a, b) => a + b.quality, 0) / MOCK_WEEK_DATA.length;
+    const h = MOCK_WEEK_DATA.reduce((a, b) => a + b.hours, 0) / MOCK_WEEK_DATA.length;
+    return { avgQuality: Math.round(q), avgHours: h.toFixed(1) };
+  }, []);
 
   // March 2026 starts on Sunday → offset 6 for Mon-start grid
   const marchDaysInMonth = 31;
@@ -54,72 +159,55 @@ const InsightsPage = () => {
     calendarDays.push({ day: d, quality: logsByDay[d] || 0 });
   }
 
-  // Find yesterday's log for details
-  const yesterdayDate = new Date();
-  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayDay = yesterdayDate.getDate();
-  const yesterdayLog = logs.find((l) => parseInt(l.date.split("-")[2], 10) === yesterdayDay);
+  const yesterdayKey = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split("T")[0];
+  }, []);
 
-  const yesterdaySleep = yesterdayLog ? {
-    totalHours: 0, // We don't track actual hours yet
-    quality: yesterdayLog.quality,
-    rating: yesterdayLog.quality >= 90 ? "Excellent" : yesterdayLog.quality >= 70 ? "Good" : yesterdayLog.quality >= 50 ? "Fair" : "Poor",
-    bedtime: yesterdayLog.bedtime_planned,
-    wakeTime: yesterdayLog.wake_time_planned,
-    heartRate: { avg: 0, min: 0, max: 0 },
-    cycles: [] as { type: string; duration: number; color: string }[],
-  } : {
-    totalHours: 0,
-    quality: 0,
-    rating: "No Data",
-    bedtime: "--:--",
-    wakeTime: "--:--",
-    heartRate: { avg: 0, min: 0, max: 0 },
-    cycles: [] as { type: string; duration: number; color: string }[],
-  };
+  const yesterdayLog = logs.find((l) => l.date === yesterdayKey);
 
-  const behaviorTags = [
-    {
-      icon: "🎮",
-      type: "Intentional",
-      count: 3,
-      color: "bg-purple-500/20 border-purple-500/30",
-      textColor: "text-purple-700 dark:text-purple-300",
-      message: "You stored too much fun in the evenings this week.",
-    },
-    {
-      icon: "📱",
-      type: "Mindless",
-      count: 1,
-      color: "bg-blue-500/20 border-blue-500/30",
-      textColor: "text-blue-700 dark:text-blue-300",
-      message: "Tuesday night your phone stole 1 hour from you.",
-    },
-    {
-      icon: "😟",
-      type: "Anxious",
-      count: 0,
-      color: "bg-green-500/20 border-green-500/30",
-      textColor: "text-green-700 dark:text-green-300",
-      message: "Pre-sleep anxiety was well managed this week!",
-    },
-  ];
+  const yesterdaySleep = useMemo(() => {
+    const m = MOCK_YESTERDAY_DETAIL;
+    if (!yesterdayLog) {
+      return {
+        totalHours: m.totalHours,
+        quality: m.quality,
+        rating: m.rating,
+        bedtime: m.bedtime,
+        wakeTime: m.wakeTime,
+        heartRate: m.heartRate,
+        cycles: m.cycles,
+      };
+    }
+    const q = yesterdayLog.quality;
+    return {
+      totalHours: m.totalHours,
+      quality: q,
+      rating: q >= 90 ? "Excellent" : q >= 70 ? "Good" : q >= 50 ? "Fair" : "Poor",
+      bedtime: yesterdayLog.bedtime_planned,
+      wakeTime: yesterdayLog.wake_time_planned,
+      heartRate: m.heartRate,
+      cycles: m.cycles,
+    };
+  }, [yesterdayLog]);
 
-  // Sleep debt: target 8h/night, 7 days
-  const sleepDebtData = {
-    targetHours: 0,
-    actualHours: 0,
-    debtHours: 0,
-    energyPercent: 0,
-    dailyBreakdown: [
-      { day: "Mon", diff: 0 },
-      { day: "Tue", diff: 0 },
-      { day: "Wed", diff: 0 },
-      { day: "Thu", diff: 0 },
-      { day: "Fri", diff: 0 },
-      { day: "Sat", diff: 0 },
-      { day: "Sun", diff: 0 },
-    ],
+  const sleepDebtData = MOCK_SLEEP_DEBT;
+
+  const runLocalAiInsights = () => {
+    setAiLoading(true);
+    window.setTimeout(() => {
+      setAiInsights(
+        buildLocalAiInsights({
+          avgQuality: weekSummary.avgQuality,
+          avgHours: Number.parseFloat(weekSummary.avgHours),
+          weekData: MOCK_WEEK_DATA,
+          debtHours: sleepDebtData.debtHours,
+          energyPercent: sleepDebtData.energyPercent,
+        })
+      );
+      setAiLoading(false);
+    }, 650);
   };
 
   const getQualityColor = (quality: number) => {
@@ -133,6 +221,7 @@ const InsightsPage = () => {
     if (rating === "Excellent") return "text-sleep-success";
     if (rating === "Good") return "text-green-400";
     if (rating === "Fair") return "text-yellow-400";
+    if (rating === "No Data") return "text-muted-foreground";
     return "text-orange-400";
   };
 
@@ -224,47 +313,6 @@ const InsightsPage = () => {
             <span className="text-sm">🌟</span>
             <span className="text-xs text-muted-foreground">Amazing</span>
           </div>
-        </div>
-      </motion.div>
-
-      {/* Behavior Attribution */}
-      <motion.div
-        className="glass-card p-4 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-      >
-        <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-          <Brain className="w-4 h-4 text-primary" />
-          Behavior Attribution
-        </h3>
-        <p className="text-xs text-muted-foreground mb-3">
-          Why you stayed up late this week
-        </p>
-
-        <div className="space-y-3">
-          {behaviorTags.map((tag, index) => (
-            <motion.div
-              key={tag.type}
-              className={`p-3 rounded-xl border ${tag.color}`}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 + index * 0.1 }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{tag.icon}</span>
-                  <span className={`text-sm font-semibold ${tag.textColor}`}>
-                    {tag.type}
-                  </span>
-                </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tag.color} ${tag.textColor}`}>
-                  {tag.count} {tag.count === 1 ? "time" : "times"}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">{tag.message}</p>
-            </motion.div>
-          ))}
         </div>
       </motion.div>
 
@@ -380,7 +428,11 @@ const InsightsPage = () => {
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
-                  className={`w-4 h-4 ${star <= 4 ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground"}`}
+                  className={`w-4 h-4 ${
+                    star <= Math.min(5, Math.max(1, Math.round(yesterdaySleep.quality / 20)))
+                      ? "text-yellow-400 fill-yellow-400"
+                      : "text-muted-foreground"
+                  }`}
                 />
               ))}
             </div>
@@ -523,7 +575,7 @@ const InsightsPage = () => {
         <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border/50">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Avg Sleep Quality</p>
-            <p className="text-xl font-bold text-foreground">81%</p>
+            <p className="text-xl font-bold text-foreground">{weekSummary.avgQuality}%</p>
             <div className="flex items-center gap-1 mt-1 text-sleep-success">
               <TrendingUp className="w-3 h-3" />
               <span className="text-xs">+5% vs last week</span>
@@ -531,13 +583,104 @@ const InsightsPage = () => {
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Avg Sleep Time</p>
-            <p className="text-xl font-bold text-foreground">7.8h</p>
+            <p className="text-xl font-bold text-foreground">{weekSummary.avgHours}h</p>
             <div className="flex items-center gap-1 mt-1 text-sleep-success">
               <TrendingUp className="w-3 h-3" />
               <span className="text-xs">+0.5h vs last week</span>
             </div>
           </div>
         </div>
+      </motion.div>
+
+      {/* Local AI-style insights (template, no API) */}
+      <motion.div
+        className="glass-card p-4 mb-6 overflow-hidden border border-primary/25 bg-gradient-to-br from-primary/[0.12] via-transparent to-accent/[0.08]"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+      >
+        <div className="flex items-start gap-3 mb-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-semibold text-foreground">AI insight</h3>
+            <p className="text-xs text-muted-foreground leading-snug">
+              Short read on this week and one bright plan for next — generated from the numbers above (on-device template, not a live model).
+            </p>
+          </div>
+        </div>
+
+        {!aiInsights && (
+          <div className="rounded-xl border border-dashed border-primary/30 bg-background/40 px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground mb-4">
+              Tap generate to weave your weekly quality, hours, and sleep debt into a quick takeaway.
+            </p>
+            <Button
+              type="button"
+              className="rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90"
+              disabled={aiLoading}
+              onClick={runLocalAiInsights}
+            >
+              {aiLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {aiInsights && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="space-y-4"
+          >
+            <div className="rounded-xl border border-border/40 bg-card/60 px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-primary mb-2">
+                This week
+              </p>
+              <p className="text-sm leading-relaxed text-foreground/95">{aiInsights.weekText}</p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-card/60 px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-accent mb-2">
+                Next week
+              </p>
+              <ul className="space-y-2">
+                {aiInsights.nextWeek.map((line, i) => (
+                  <li key={i} className="flex gap-2 text-sm leading-snug text-foreground/95">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full rounded-xl"
+              disabled={aiLoading}
+              onClick={runLocalAiInsights}
+            >
+              {aiLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Regenerating…
+                </>
+              ) : (
+                "Regenerate"
+              )}
+            </Button>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
