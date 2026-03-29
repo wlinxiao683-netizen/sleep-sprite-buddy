@@ -6,6 +6,7 @@ import HomePage from "@/pages/HomePage";
 import PlanPage from "@/pages/PlanPage";
 import InsightsPage from "@/pages/StatsPage";
 import ProfilePage from "@/pages/SettingsPage";
+import ChatPage from "@/pages/ChatPage";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -20,6 +21,8 @@ const Index = () => {
         return <InsightsPage />;
       case "profile":
         return <ProfilePage />;
+      case "chat":
+        return <ChatPage />;
       default:
         return <HomePage />;
     }
