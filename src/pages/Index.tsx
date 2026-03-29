@@ -10,6 +10,15 @@ import ChatPage from "@/pages/ChatPage";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
+  const [isLandscape, setIsLandscape] = useState(false);
+
+  const toggleLandscape = () => setIsLandscape((v) => !v);
+
+  // When entering landscape, ensure chat tab is active
+  const handleToggleLandscape = () => {
+    if (!isLandscape) setActiveTab("chat");
+    toggleLandscape();
+  };
 
   const renderPage = () => {
     switch (activeTab) {
@@ -22,32 +31,44 @@ const Index = () => {
       case "profile":
         return <ProfilePage />;
       case "chat":
-        return <ChatPage />;
+        return (
+          <ChatPage
+            isLandscape={isLandscape}
+            onToggleLandscape={handleToggleLandscape}
+          />
+        );
       default:
         return <HomePage />;
     }
   };
 
+  // In landscape chat mode, ChatPage renders as a fixed full-screen overlay.
+  // We still render the shell below (it's hidden behind the overlay).
+  const hideChrome = isLandscape && activeTab === "chat";
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
-      {/* Theme toggle */}
-      <ThemeToggle />
+      {/* Theme toggle – hidden in landscape */}
+      {!hideChrome && <ThemeToggle />}
 
-      {/* Background gradient effect */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div 
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full opacity-20"
-          style={{
-            background: "radial-gradient(circle at 30% 20%, hsl(250 85% 65% / 0.2) 0%, transparent 50%), radial-gradient(circle at 70% 60%, hsl(310 80% 65% / 0.12) 0%, transparent 50%)",
-          }}
-        />
-      </div>
+      {/* Background gradient */}
+      {!hideChrome && (
+        <div className="fixed inset-0 pointer-events-none">
+          <div
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full opacity-20"
+            style={{
+              background:
+                "radial-gradient(circle at 30% 20%, hsl(250 85% 65% / 0.2) 0%, transparent 50%), radial-gradient(circle at 70% 60%, hsl(310 80% 65% / 0.12) 0%, transparent 50%)",
+            }}
+          />
+        </div>
+      )}
 
       {/* Main content */}
       <div className="relative max-w-lg mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeTab}
+            key={activeTab + String(isLandscape)}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -58,8 +79,10 @@ const Index = () => {
         </AnimatePresence>
       </div>
 
-      {/* Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* Bottom Navigation – hidden in landscape mode */}
+      {!hideChrome && (
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      )}
     </div>
   );
 };

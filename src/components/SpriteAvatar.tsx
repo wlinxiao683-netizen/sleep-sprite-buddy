@@ -1,301 +1,251 @@
-import { motion, useAnimation, useMotionValue, useSpring } from "framer-motion";
+/**
+ * SpriteAvatar – SVG sprite face with Q-bounce expression transitions.
+ *
+ * Expression cycle: normal (O_O) → wink (−_O) → sleepy (−_−) → normal …
+ *
+ * Each eye is drawn as a rounded-rect / arc shape that morphs between:
+ *   open  = tall rounded rect  (O)
+ *   closed = flat arc           (−)
+ * The morph is achieved by animating `ry` (vertical radius) of an ellipse
+ * with a very stiff spring so the squish is snappy and Q-bouncy.
+ */
+
+import { motion, useSpring, useTransform, animate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
-type Expression = "normal" | "wink" | "sleepy";
+export type Expression = "normal" | "wink" | "sleepy";
 
 interface SpriteAvatarProps {
+  /** Controlled expression – if provided, autoAnimate is ignored */
   expression?: Expression;
   size?: number;
   autoAnimate?: boolean;
   onClick?: () => void;
+  /** Dark background mode (black face) */
+  dark?: boolean;
 }
 
-// Spring config for extremely elastic, Q-bounce feel
-const bouncySpring = {
-  type: "spring" as const,
-  stiffness: 600,
-  damping: 12,
-  mass: 0.6,
-};
-
-const softSpring = {
-  type: "spring" as const,
-  stiffness: 300,
-  damping: 15,
-  mass: 0.8,
-};
-
-// Eye shape data per expression
-// Each eye is described as an SVG path relative to its center
-// normal: open circle eyes
-// wink: left eye closed (arc), right eye open
-// sleepy: both eyes half-closed (arcs)
-
-const EYE_RADIUS = 11;
-const PUPIL_RADIUS = 5;
-
-// Arc path for closed/half-closed eye (horizontal arc, "squinting")
-const arcPath = (cx: number, cy: number, rx: number, ry: number) =>
-  `M ${cx - rx} ${cy} Q ${cx} ${cy - ry * 0.7} ${cx + rx} ${cy}`;
-
-// Full circle as path (for morphing to arc)
-const circlePath = (cx: number, cy: number, r: number) =>
-  `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy} A ${r} ${r} 0 1 1 ${cx - r} ${cy}`;
+// ---------------------------------------------------------------------------
+// Single eye component
+// ---------------------------------------------------------------------------
 
 interface EyeProps {
-  cx: number;
-  cy: number;
-  expression: Expression;
-  isLeft: boolean;
+  cx: number;   // horizontal centre in the 180-unit viewBox
+  cy: number;   // vertical centre
+  open: boolean;  // true = O, false = − (arc)
+  // for wink the left eye closes immediately with a slight delay,
+  // for sleepy both close together
+  delay?: number;
+  faceColor: string;
+  eyeWhite: string;
 }
 
-const Eye = ({ cx, cy, expression, isLeft }: EyeProps) => {
-  const isClosed = expression === "wink" && isLeft;
-  const isSleepy = expression === "sleepy";
+const EYE_RX = 13;  // horizontal radius – stays constant
+const EYE_RY_OPEN = 15;  // vertical radius when open
+const EYE_RY_CLOSED = 3; // vertical radius when closed (flat arc look)
 
-  // scaleY drives squish: 1 = open circle, 0 = flat line
-  const scaleY = isClosed ? 0 : isSleepy ? 0.35 : 1;
-  const scaleX = isClosed ? 1 : isSleepy ? 1.15 : 1;
+const Eye = ({ cx, cy, open, delay = 0, faceColor, eyeWhite }: EyeProps) => {
+  const ry = useSpring(open ? EYE_RY_OPEN : EYE_RY_CLOSED, {
+    stiffness: 700,
+    damping: 16,
+    mass: 0.5,
+  });
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      ry.set(open ? EYE_RY_OPEN : EYE_RY_CLOSED);
+    }, delay);
+    return () => clearTimeout(t);
+  }, [open, delay]);
+
+  // Pupil / shine only visible when open enough
+  const pupilOpacity = useTransform(ry, [EYE_RY_CLOSED + 2, EYE_RY_CLOSED + 7], [0, 1]);
+
+  // When closed, the flat arch needs a cover – we clip the bottom half of the
+  // ellipse by placing an opaque rectangle over the lower portion that scales
+  // with ry so it always looks like a clean arc.
 
   return (
     <g>
-      {/* White sclera / eye bg */}
+      {/* White eyeball */}
       <motion.ellipse
         cx={cx}
         cy={cy}
-        rx={EYE_RADIUS}
-        ry={EYE_RADIUS}
-        fill="white"
-        animate={{ scaleY, scaleX }}
-        transition={bouncySpring}
-        style={{ originX: `${cx}px`, originY: `${cy}px`, transformBox: "fill-box", transformOrigin: "center" }}
+        rx={EYE_RX}
+        style={{ ry } as never}
+        fill={eyeWhite}
+      />
+      {/* Cover the bottom half to make a clean closed arc */}
+      <motion.rect
+        x={cx - EYE_RX - 1}
+        y={cy}
+        width={EYE_RX * 2 + 2}
+        height={EYE_RY_OPEN + 4}
+        fill={faceColor}
       />
       {/* Pupil */}
       <motion.circle
         cx={cx}
-        cy={cy + (isSleepy ? 1 : 0)}
-        r={PUPIL_RADIUS}
-        fill="#1a1a2e"
-        animate={{ scaleY: scaleY < 0.5 ? 0 : scaleY * 0.8 + 0.2, scaleX }}
-        transition={bouncySpring}
-        style={{ transformBox: "fill-box", transformOrigin: "center" }}
+        cy={cy - 1}
+        r={6}
+        fill="#111"
+        style={{ opacity: pupilOpacity }}
       />
-      {/* Shine dot */}
+      {/* Shine */}
       <motion.circle
-        cx={cx + 3}
-        cy={cy - 3}
+        cx={cx + 3.5}
+        cy={cy - 5}
         r={2.5}
         fill="white"
-        animate={{ opacity: scaleY < 0.3 ? 0 : 1 }}
-        transition={{ duration: 0.15 }}
+        style={{ opacity: pupilOpacity }}
       />
-      {/* Eyelid cover that slides down for wink/sleepy */}
-      {(isClosed || isSleepy) && (
-        <motion.ellipse
-          cx={cx}
-          cy={cy}
-          rx={EYE_RADIUS + 1}
-          ry={EYE_RADIUS + 1}
-          fill="#1a1a2e"
-          initial={{ scaleY: 0 }}
-          animate={{ scaleY: isClosed ? 1 : 0.65 }}
-          transition={bouncySpring}
-          style={{ transformBox: "fill-box", transformOrigin: `${cx}px ${cy - EYE_RADIUS - 1}px` }}
-        />
-      )}
+      {/* Upper eyelid arc that covers the top of the ellipse when closing –
+          same colour as face so the eye becomes a downward arc */}
+      <motion.ellipse
+        cx={cx}
+        cy={cy}
+        rx={EYE_RX + 2}
+        style={{ ry: useTransform(ry, (v) => Math.max(0, EYE_RY_OPEN - v + 1)) } as never}
+        fill={faceColor}
+      />
     </g>
   );
 };
 
-// Mouth shapes
+// ---------------------------------------------------------------------------
+// Mouth component – morphs between a small and wide U-curve
+// ---------------------------------------------------------------------------
 interface MouthProps {
   expression: Expression;
 }
+const MOUTHS: Record<Expression, string> = {
+  normal: "M 72 107 Q 90 116 108 107",
+  wink:   "M 70 106 Q 90 118 110 106",
+  sleepy: "M 74 108 Q 90 114 106 108",
+};
 
 const Mouth = ({ expression }: MouthProps) => {
-  // normal: U-curve smile
-  // wink: cheeky wide smile (wider U)
-  // sleepy: gentle small arc / almost flat
-  const paths = {
-    normal: "M 70 98 Q 90 112 110 98",
-    wink:   "M 64 96 Q 90 118 116 96",
-    sleepy: "M 74 100 Q 90 106 106 100",
-  };
+  const [d, setD] = useState(MOUTHS[expression]);
+
+  useEffect(() => {
+    setD(MOUTHS[expression]);
+  }, [expression]);
 
   return (
     <motion.path
-      d={paths[expression]}
+      d={d}
+      animate={{ d: MOUTHS[expression] }}
+      transition={{ type: "spring", stiffness: 400, damping: 20 }}
       stroke="white"
       strokeWidth={3.5}
       strokeLinecap="round"
       fill="none"
-      animate={{ d: paths[expression] }}
-      transition={softSpring}
     />
   );
 };
 
-// Blush circles
-interface BlushProps {
-  expression: Expression;
-}
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+const SEQUENCE: Expression[] = ["normal", "wink", "sleepy"];
+const DURATIONS = [2200, 1800, 2400];
 
-const Blush = ({ expression }: BlushProps) => {
-  const opacity = expression === "wink" ? 0.65 : expression === "sleepy" ? 0.45 : 0.3;
-  return (
-    <>
-      <motion.ellipse cx={55} cy={108} rx={10} ry={6} fill="#ff9eb5" animate={{ opacity }} transition={{ duration: 0.4 }} />
-      <motion.ellipse cx={125} cy={108} rx={10} ry={6} fill="#ff9eb5" animate={{ opacity }} transition={{ duration: 0.4 }} />
-    </>
-  );
-};
-
-// Z markers for sleepy expression
-const ZZZ = ({ visible }: { visible: boolean }) => (
-  <motion.g
-    animate={{ opacity: visible ? 1 : 0, x: visible ? 0 : -10 }}
-    transition={{ duration: 0.4 }}
-  >
-    {[0, 1, 2].map((i) => (
-      <motion.text
-        key={i}
-        x={130 + i * 12}
-        y={55 - i * 12}
-        fontSize={10 + i * 3}
-        fill="white"
-        opacity={0.8 - i * 0.15}
-        animate={visible ? { y: [55 - i * 12, 45 - i * 12], opacity: [0.8 - i * 0.15, 0] } : {}}
-        transition={visible ? { duration: 2, repeat: Infinity, delay: i * 0.4, repeatDelay: 0.5 } : {}}
-      >
-        Z
-      </motion.text>
-    ))}
-  </motion.g>
-);
-
-const SpriteAvatar = ({ expression: externalExpression, size = 200, autoAnimate = true, onClick }: SpriteAvatarProps) => {
+const SpriteAvatar = ({
+  expression: externalExpr,
+  size = 200,
+  autoAnimate = true,
+  onClick,
+  dark = true,
+}: SpriteAvatarProps) => {
   const [expression, setExpression] = useState<Expression>("normal");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sequenceRef = useRef(0);
-
-  // Expression sequence: normal → wink → normal → sleepy → normal → ...
-  const sequence: Expression[] = ["normal", "wink", "normal", "sleepy"];
-  const durations = [2800, 1800, 2400, 3200];
+  const idxRef = useRef(0);
 
   useEffect(() => {
-    if (externalExpression !== undefined) {
-      setExpression(externalExpression);
+    if (externalExpr !== undefined) {
+      setExpression(externalExpr);
       return;
     }
     if (!autoAnimate) return;
 
+    let cancelled = false;
     const tick = () => {
-      sequenceRef.current = (sequenceRef.current + 1) % sequence.length;
-      setExpression(sequence[sequenceRef.current]);
-      timerRef.current = setTimeout(tick, durations[sequenceRef.current]);
+      if (cancelled) return;
+      idxRef.current = (idxRef.current + 1) % SEQUENCE.length;
+      setExpression(SEQUENCE[idxRef.current]);
+      setTimeout(tick, DURATIONS[idxRef.current]);
     };
-
-    timerRef.current = setTimeout(tick, durations[0]);
+    const timer = setTimeout(tick, DURATIONS[0]);
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      cancelled = true;
+      clearTimeout(timer);
     };
-  }, [externalExpression, autoAnimate]);
+  }, [externalExpr, autoAnimate]);
 
-  const scale = size / 180;
+  const faceColor = dark ? "#0a0a0a" : "#f8f4ff";
+  const eyeWhite = dark ? "white" : "white";
+  const headFill = dark ? "#111" : "#2a2a4a";
 
-  // Body bounce animation — perpetual gentle float with a squish heartbeat
-  const bodyAnim = {
-    y: [0, -10, 0],
-    scaleX: [1, 1.04, 1],
-    scaleY: [1, 0.97, 1],
-  };
+  const leftOpen = expression === "normal";
+  const rightOpen = expression === "normal" || expression === "wink";
+
+  // Body float animation
+  const floatY = useSpring(0, { stiffness: 60, damping: 12 });
+  useEffect(() => {
+    let fwd = true;
+    const loop = () => {
+      floatY.set(fwd ? -9 : 0);
+      fwd = !fwd;
+    };
+    loop();
+    const id = setInterval(loop, 1400);
+    return () => clearInterval(id);
+  }, []);
+
+  // Squish on tap
+  const [tapped, setTapped] = useState(false);
 
   return (
     <motion.div
       style={{ width: size, height: size, cursor: onClick ? "pointer" : "default" }}
-      onClick={onClick}
-      whileTap={{ scale: 0.88, transition: { type: "spring", stiffness: 800, damping: 10 } }}
-      whileHover={{ scale: 1.06, transition: { type: "spring", stiffness: 400, damping: 12 } }}
+      onClick={() => { setTapped(true); setTimeout(() => setTapped(false), 600); onClick?.(); }}
     >
-      <svg
-        viewBox="0 0 180 200"
+      <motion.svg
+        viewBox="0 0 180 180"
         width={size}
         height={size}
-        style={{ overflow: "visible" }}
+        style={{ overflow: "visible", y: floatY }}
+        animate={tapped ? { scaleX: [1, 1.25, 0.85, 1.1, 1], scaleY: [1, 0.75, 1.2, 0.92, 1] } : {}}
+        transition={tapped ? { duration: 0.55, times: [0, 0.2, 0.45, 0.7, 1], ease: "easeOut" } : {}}
       >
-        {/* Shadow */}
-        <motion.ellipse
-          cx={90}
-          cy={195}
-          rx={45}
-          ry={8}
-          fill="rgba(0,0,0,0.15)"
-          animate={{ scaleX: [1, 1.1, 1], opacity: [0.15, 0.1, 0.15] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+        {/* Head */}
+        <circle cx={90} cy={90} r={72} fill={headFill} />
+
+        {/* Eyes */}
+        <Eye
+          cx={63}
+          cy={80}
+          open={leftOpen}
+          delay={expression === "wink" ? 0 : 0}
+          faceColor={headFill}
+          eyeWhite={eyeWhite}
+        />
+        <Eye
+          cx={117}
+          cy={80}
+          open={rightOpen}
+          delay={expression === "sleepy" ? 80 : 0}
+          faceColor={headFill}
+          eyeWhite={eyeWhite}
         />
 
-        {/* Body group - floats and squishes */}
-        <motion.g
-          style={{ transformOrigin: "90px 185px" }}
-          animate={bodyAnim}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          {/* Ear left */}
-          <motion.ellipse
-            cx={42}
-            cy={52}
-            rx={18}
-            ry={22}
-            fill="#2a2a4a"
-            animate={{ scaleY: expression === "wink" ? 1.1 : 1 }}
-            transition={bouncySpring}
-          />
-          <ellipse cx={42} cy={54} rx={10} ry={13} fill="#3d3d6b" />
+        {/* Nose dot */}
+        <circle cx={90} cy={97} r={2.5} fill="rgba(255,255,255,0.4)" />
 
-          {/* Ear right */}
-          <motion.ellipse
-            cx={138}
-            cy={52}
-            rx={18}
-            ry={22}
-            fill="#2a2a4a"
-            animate={{ scaleY: expression === "wink" ? 1.1 : 1 }}
-            transition={bouncySpring}
-          />
-          <ellipse cx={138} cy={54} rx={10} ry={13} fill="#3d3d6b" />
-
-          {/* Head */}
-          <motion.ellipse
-            cx={90}
-            cy={100}
-            rx={60}
-            ry={58}
-            fill="#1e1e3a"
-            animate={{
-              scaleX: expression === "wink" ? 1.04 : expression === "sleepy" ? 0.98 : 1,
-              scaleY: expression === "sleepy" ? 1.03 : 1,
-            }}
-            transition={bouncySpring}
-            style={{ transformBox: "fill-box", transformOrigin: "center" }}
-          />
-
-          {/* Eyes */}
-          <Eye cx={68} cy={93} expression={expression} isLeft={true} />
-          <Eye cx={112} cy={93} expression={expression} isLeft={false} />
-
-          {/* Blush */}
-          <Blush expression={expression} />
-
-          {/* Mouth */}
-          <Mouth expression={expression} />
-
-          {/* ZZZ */}
-          <ZZZ visible={expression === "sleepy"} />
-        </motion.g>
-      </svg>
+        {/* Mouth */}
+        <Mouth expression={expression} />
+      </motion.svg>
     </motion.div>
   );
 };
 
-export type { Expression };
 export default SpriteAvatar;
