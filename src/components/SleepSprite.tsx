@@ -29,7 +29,7 @@ const spriteImages: Record<SpriteType, string> = {
 
 const spriteNames: Record<SpriteType, string> = {
   koala: "Koko",
-  unicorn: "Luna",
+  unicorn: "Lulu",
   sheep: "Woolly",
   cat: "Mimi",
 };

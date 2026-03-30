@@ -3,7 +3,7 @@ import { Bell, Send, Check, Sparkles, Trash2, Mic, Calendar, Rocket, Timer, Rota
 import { useState, useRef } from "react";
 import CircularTimePicker from "@/components/CircularTimePicker";
 import { Slider } from "@/components/ui/slider";
-import { useSleepPlan } from "@/hooks/use-sleep-plan";
+import { useSleepPlanContext } from "@/contexts/sleep-plan-context";
 import { useSleepLogs } from "@/hooks/use-sleep-logs";
 
 interface WorryItem {
@@ -26,7 +26,7 @@ const PlanPage = () => {
     toggleAlarm,
     activate,
     resetActivation,
-  } = useSleepPlan();
+  } = useSleepPlanContext();
   const { resetTodayLog } = useSleepLogs();
 
   // Brain dump state
