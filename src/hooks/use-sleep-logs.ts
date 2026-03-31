@@ -1,14 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-function getDeviceId(): string {
-  let id = localStorage.getItem("sleepwell_device_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("sleepwell_device_id", id);
-  }
-  return id;
-}
+import { getOrCreateDeviceId } from "@/lib/deviceId";
 
 function getTodayDate(): string {
   return new Date().toISOString().split("T")[0];
@@ -32,7 +24,7 @@ export interface SleepLog {
 export function useSleepLogs() {
   const [logs, setLogs] = useState<SleepLog[]>([]);
   const [todayLog, setTodayLog] = useState<SleepLog | null>(null);
-  const deviceId = useRef(getDeviceId());
+  const deviceId = useRef(getOrCreateDeviceId());
 
   // Load logs for current month
   const loadLogs = useCallback(async (year: number, month: number) => {

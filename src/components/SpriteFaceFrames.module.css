@@ -1,0 +1,77 @@
+/* 整体舞台 Q 弹；帧切换在 TS 里单图轮播，避免透明 PNG 多层叠影 */
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 491 / 234;
+  overflow: visible;
+  transform-origin: center center;
+  animation: stageBounce var(--sprite-face-dur, 2.55s) infinite both;
+}
+
+/* .frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+  display: block;
+  transform-origin: center center;
+} */
+
+.frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+  display: block;
+  transform-origin: center center;
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+@keyframes stageBounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  7% {
+    transform: translateY(2px) scale(1.02, 0.978);
+  }
+  14% {
+    transform: translateY(-2px) scale(0.988, 1.014);
+  }
+  26% {
+    transform: translateY(5px) scale(1.062, 0.938);
+  }
+  32% {
+    transform: translateY(-4px) scale(0.972, 1.028);
+  }
+  38% {
+    transform: translateY(0) scale(1, 1);
+  }
+  58% {
+    transform: translateY(5px) scale(1.062, 0.938);
+  }
+  64% {
+    transform: translateY(-4px) scale(0.972, 1.028);
+  }
+  70% {
+    transform: translateY(0) scale(1, 1);
+  }
+  88% {
+    transform: translateY(4px) scale(1.052, 0.948);
+  }
+  95% {
+    transform: translateY(-2px) scale(0.978, 1.022);
+  }
+}
+
+.stageReact {
+  --sprite-face-dur: 2.05s;
+}

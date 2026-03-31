@@ -1,14 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-function getDeviceId(): string {
-  let id = localStorage.getItem("sleepwell_device_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("sleepwell_device_id", id);
-  }
-  return id;
-}
+import { getOrCreateDeviceId } from "@/lib/deviceId";
 
 function getCurrentMinutes(): number {
   const now = new Date();
@@ -50,7 +42,7 @@ export function useSleepPlan() {
   const [activatedAt, setActivatedAt] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
-  const deviceId = useRef(getDeviceId());
+  const deviceId = useRef(getOrCreateDeviceId());
 
   // Load from DB
   useEffect(() => {
