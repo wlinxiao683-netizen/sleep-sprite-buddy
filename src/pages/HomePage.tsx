@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Gift, Star, Heart } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import chatIconImg from "@/assets/sprites/ChatIcon.png";
 import { toast } from "sonner";
 import SleepSprite, { SpriteType, spriteNames, GlowType } from "@/components/SleepSprite";
 import { useSleepPlanContext } from "@/contexts/sleep-plan-context";
@@ -61,7 +62,11 @@ const DECORATION_ITEMS: {
   { key: "moon_halo", icon: "🌙", name: "Moon Halo", redeemId: "moon_halo" },
 ];
 
-const HomePage = () => {
+interface HomePageProps {
+  onOpenChat?: () => void;
+}
+
+const HomePage = ({ onOpenChat }: HomePageProps) => {
   const sleepHours = 7.75;
   const [spriteXP, setSpriteXP] = useState(1280);
   const [claimedRewards, setClaimedRewards] = useState<number[]>([]);
@@ -208,6 +213,27 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen pb-24 px-6">
+      {/* Chat icon – fixed top-right of the viewport */}
+      <motion.button
+        className="fixed z-40"
+        style={{ top: 14, right: 14 }}
+        onClick={onOpenChat}
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.4, type: "spring", stiffness: 350, damping: 20 }}
+        whileHover={{ scale: 1.12 }}
+        whileTap={{ scale: 0.88 }}
+        aria-label="打开聊天"
+      >
+        <motion.img
+          src={chatIconImg}
+          alt="chat"
+          style={{ width: 80, height: 80, objectFit: "contain", filter: "drop-shadow(0 4px 12px rgba(160,120,255,0.45))" }}
+          animate={{ y: [100, 120, 100] }}
+          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </motion.button>
+
       {/* Header */}
       <motion.div
         className="pt-8 pb-2"
