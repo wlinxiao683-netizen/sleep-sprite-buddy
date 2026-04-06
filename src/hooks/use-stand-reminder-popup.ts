@@ -69,7 +69,6 @@ export function useStandReminderPopup(
         new Notification("Lulu", {
           body: "Lulu's a bit tired — could you put me on the stand?",
           icon: img,
-          image: img,
         });
       }
     };
