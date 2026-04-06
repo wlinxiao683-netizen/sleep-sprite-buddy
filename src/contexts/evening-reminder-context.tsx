@@ -62,7 +62,7 @@ export function EveningReminderProvider({ children }: { children: ReactNode }) {
   const [eveningReminderEnabled, setEveningReminderEnabledState] = useState(loadEnabled);
   const [eveningReminderTime, setEveningReminderTimeState] = useState(loadTime);
   const [eveningReminderImmediateSignal, setEveningReminderImmediateSignal] = useState(0);
-  const timePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timePreviewTimerRef = useRef<number | null>(null);
 
   const bumpImmediatePreview = useCallback(() => {
     clearTodayEveningPopupShownFlag();
